@@ -82,7 +82,27 @@ Core Components:
     }
     ```
 
-6. Run this code and you will see output like this
+    The `Run` method parses CLI arguments from `os.Args`:
+
+    ```bash
+    # Run database migrations
+    ./myapp migrate
+
+    # Start the application (services and startup tasks)
+    ./myapp run
+
+    # Show usage
+    ./myapp --help
+    ```
+
+6. Run migrations first, then start your app
+
+    ```bash
+    ./myapp migrate
+    ./myapp run
+    ```
+
+    You will see output like this:
 
     ```
     time=2025-11-11T22:01:26.630+03:00 level=INFO msg="starting application" startupTasks=1
@@ -97,15 +117,31 @@ Core Components:
 
 </Steps>
 
+## CLI commands
+
+The `Run` method reads `os.Args` and executes the appropriate command:
+
+| Command | Description |
+|---------|-------------|
+| `run` | Start the application (startup tasks + services) |
+| `migrate` | Run database migrations and exit |
+| `--help`, `-h` | Show usage information |
+
+If no command is provided, usage information is printed.
+
 ## Execution order
 
-When you call `app.Run(ctx)`, the following happens in order:
+When you run `./myapp run`, the following happens in order:
+
+1. **Startup tasks** - Tasks run sequentially in registration order
+2. **Services** - All services start concurrently in separate goroutines
+3. **Wait** - Application waits for context cancellation (Ctrl+C)
+4. **Shutdown** - Services receive context cancellation for graceful shutdown
+
+When you run `./myapp migrate`:
 
 1. **Database migrations** - All registered databases run their migrations
-2. **Startup tasks** - Tasks run sequentially in registration order
-3. **Services** - All services start concurrently in separate goroutines
-4. **Wait** - Application waits for context cancellation (Ctrl+C)
-5. **Shutdown** - Services receive context cancellation for graceful shutdown
+2. **Exit** - Application exits after migrations complete
 
 ## Register methods
 
@@ -122,7 +158,7 @@ If the service implements `Healthchecker`, its health status is automatically tr
 
 ### RegisterDatabase
 
-Registers a database connection. All registered databases are migrated automatically when `Run` is called.
+Registers a database connection. Migrations are run when you execute the `migrate` command.
 
 ```go
 db, _ := database.New("postgres://user:pass@localhost:5432/mydb?sslmode=disable")
@@ -179,8 +215,9 @@ The response includes application start time and per-service status:
 
 The application returns specific error types:
 
+- `ErrUnknownCommand` - Returned when an unknown CLI command is provided
 - `ErrStartupTaskFailed` - Returned when a startup task with `AbortOnError: true` fails
-- `ErrDatabaseMigrationFailed` - Returned when database migration fails
+- `ErrDatabaseMigrationFailed` - Returned when database migration fails (from `migrate` command)
 
 Both error types support unwrapping to get the underlying error:
 
