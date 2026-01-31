@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,6 +12,9 @@ import (
 	"github.com/platforma-dev/platforma/database"
 	"github.com/platforma-dev/platforma/log"
 )
+
+// ErrUnknownCommand is returned when an unknown CLI command is provided.
+var ErrUnknownCommand = errors.New("unknown command")
 
 // ErrDatabaseMigrationFailed is an error type that represents a failed database migration.
 type ErrDatabaseMigrationFailed struct {
@@ -87,17 +91,19 @@ func (a *Application) RegisterDomain(name, dbName string, domain Domain) {
 	}
 }
 
-// Run executes all startup tasks and services in the application.
-// It returns an error if any startup task configured to abort on error fails.
-func (a *Application) Run(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
+func (a *Application) printUsage() {
+	fmt.Println("Usage: <binary> <command>")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("  run       Start the application")
+	fmt.Println("  migrate   Run database migrations")
+}
+
+func (a *Application) migrate(ctx context.Context) error {
+	if len(a.databases) == 0 {
+		log.WarnContext(ctx, "no databases registered")
+		return nil
 	}
-
-	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, os.Kill)
-	defer cancel()
-
-	log.InfoContext(ctx, "starting application", "startupTasks", len(a.startupTasks))
 
 	for dbName, db := range a.databases {
 		log.InfoContext(ctx, "migrating database", "database", dbName)
@@ -107,6 +113,15 @@ func (a *Application) Run(ctx context.Context) error {
 			return &ErrDatabaseMigrationFailed{err: err}
 		}
 	}
+
+	return nil
+}
+
+func (a *Application) run(ctx context.Context) error {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, os.Kill)
+	defer cancel()
+
+	log.InfoContext(ctx, "starting application", "startupTasks", len(a.startupTasks))
 
 	for i, task := range a.startupTasks {
 		log.InfoContext(ctx, "running task", "task", task.config.Name, "index", i)
@@ -154,4 +169,33 @@ func (a *Application) Run(ctx context.Context) error {
 	wg.Wait()
 
 	return nil
+}
+
+// Run parses CLI arguments and executes the appropriate command.
+// Supported commands: run (start services), migrate (run database migrations).
+// Returns nil on success, ErrUnknownCommand for unknown commands.
+func (a *Application) Run(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	args := os.Args
+	if len(args) < 2 {
+		a.printUsage()
+		return nil
+	}
+
+	command := args[1]
+	switch command {
+	case "run":
+		return a.run(ctx)
+	case "migrate":
+		return a.migrate(ctx)
+	case "--help", "-h":
+		a.printUsage()
+		return nil
+	default:
+		a.printUsage()
+		return ErrUnknownCommand
+	}
 }
