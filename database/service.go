@@ -67,8 +67,11 @@ func (s *service) migrateSelf(ctx context.Context) error {
 				}
 				return err
 			}
+			log.InfoContext(ctx, "migration applied", "repository", "platforma_migration", "migrationId", migr.ID)
 			migr.repository = "platforma_migration"
 			appliedMigrations = append(appliedMigrations, migr)
+		} else {
+			log.InfoContext(ctx, "migration skipped", "repository", "platforma_migration", "migrationId", migr.ID)
 		}
 	}
 
@@ -102,7 +105,10 @@ func (s *service) applyMigrations(ctx context.Context, migrations []Migration, m
 				}
 				return err
 			}
+			log.InfoContext(ctx, "migration applied", "repository", migr.repository, "migrationId", migr.ID)
 			appliedMigrations = append(appliedMigrations, migr)
+		} else {
+			log.InfoContext(ctx, "migration skipped", "repository", migr.repository, "migrationId", migr.ID)
 		}
 	}
 
