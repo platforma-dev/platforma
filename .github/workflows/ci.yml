@@ -59,7 +59,7 @@ jobs:
           go-version: stable
 
       - name: Test
-        run: go test -v -coverprofile="coverage.tmp.txt" ./...
+        run: go test -v -race -coverprofile="coverage.tmp.txt" ./...
 
       - name: Filter coverage
         if: matrix.os == 'ubuntu'
