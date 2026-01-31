@@ -1,9 +1,9 @@
 package scheduler_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,9 +14,9 @@ import (
 func TestSuccessRun(t *testing.T) {
 	t.Parallel()
 
-	buf := bytes.Buffer{}
+	var counter atomic.Int32
 	s := scheduler.New(1*time.Second, application.RunnerFunc(func(ctx context.Context) error {
-		buf.WriteString("1")
+		counter.Add(1)
 		return nil
 	}))
 
@@ -24,17 +24,17 @@ func TestSuccessRun(t *testing.T) {
 
 	time.Sleep(3500 * time.Millisecond)
 
-	if buf.String() != "111" {
-		t.Errorf("wrong buffer content. expected %v, got %v", "111", buf.String())
+	if counter.Load() != 3 {
+		t.Errorf("wrong counter value. expected %v, got %v", 3, counter.Load())
 	}
 }
 
 func TestErrorRun(t *testing.T) {
 	t.Parallel()
 
-	buf := bytes.Buffer{}
+	var counter atomic.Int32
 	s := scheduler.New(1*time.Second, application.RunnerFunc(func(ctx context.Context) error {
-		buf.WriteString("1")
+		counter.Add(1)
 		return errors.New("some error")
 	}))
 
@@ -42,17 +42,17 @@ func TestErrorRun(t *testing.T) {
 
 	time.Sleep(3500 * time.Millisecond)
 
-	if buf.String() != "111" {
-		t.Errorf("wrong buffer content. expected %v, got %v", "111", buf.String())
+	if counter.Load() != 3 {
+		t.Errorf("wrong counter value. expected %v, got %v", 3, counter.Load())
 	}
 }
 
 func TestContextDecline(t *testing.T) {
 	t.Parallel()
 
-	buf := bytes.Buffer{}
+	var counter atomic.Int32
 	s := scheduler.New(1*time.Second, application.RunnerFunc(func(ctx context.Context) error {
-		buf.WriteString("1")
+		counter.Add(1)
 		return nil
 	}))
 
@@ -65,8 +65,8 @@ func TestContextDecline(t *testing.T) {
 
 	err := s.Run(ctx)
 
-	if buf.String() != "111" {
-		t.Errorf("wrong buffer content. expected %v, got %v", "111", buf.String())
+	if counter.Load() != 3 {
+		t.Errorf("wrong counter value. expected %v, got %v", 3, counter.Load())
 	}
 
 	if err == nil {

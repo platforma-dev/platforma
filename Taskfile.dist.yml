@@ -11,7 +11,7 @@ tasks:
 
   test:
     cmds:
-      - go test -coverprofile=coverage.tmp.out ./...
+      - go test -race -coverprofile=coverage.tmp.out ./...
       - cat coverage.tmp.out | grep -v "demo-app" | grep -v "platforma/docs" > coverage.out
       - go tool cover -html=coverage.out -o coverage.html
 
