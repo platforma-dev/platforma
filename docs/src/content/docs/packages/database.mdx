@@ -9,7 +9,7 @@ Core Components:
 
 - `Database`: Manages database connection, repository registration, and migration execution
 - `Migration`: Represents a database migration with `ID`, `Up`, and `Down` SQL statements
-- `migrator` interface: Repositories implementing `Migrations() []Migration` are automatically migrated
+- `migrator` interface: Repositories implementing `Migrations() fs.FS` are automatically migrated
 
 [Full package docs at pkg.go.dev](https://pkg.go.dev/github.com/platforma-dev/platforma/database)
 
@@ -29,9 +29,35 @@ Core Components:
 
     The connection string follows standard PostgreSQL format.
 
-2. Define a repository with migrations
+2. Create a SQL migration file
+
+    ```sql
+    // 001_create_users_table.sql
+    -- +migrate Up
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL
+    );
+
+    -- +migrate Down
+    DROP TABLE users;
+    ```
+
+    Each migration file contains `-- +migrate Up` (required) and `-- +migrate Down` (optional) sections. The migration ID is derived from the filename.
+
+3. Define a repository that embeds migrations
 
     ```go
+    import (
+        "embed"
+        "io/fs"
+
+        "github.com/jmoiron/sqlx"
+    )
+
+    //go:embed *.sql
+    var migrations embed.FS
+
     type UserRepository struct {
         db *sqlx.DB
     }
@@ -40,20 +66,14 @@ Core Components:
         return &UserRepository{db: db}
     }
 
-    func (r *UserRepository) Migrations() []database.Migration {
-        return []database.Migration{
-            {
-                ID:   "create_users_table",
-                Up:   "CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT NOT NULL)",
-                Down: "DROP TABLE users",
-            },
-        }
+    func (r *UserRepository) Migrations() fs.FS {
+        return migrations
     }
     ```
 
-    The `Migrations()` method makes your repository a migrator. Each migration needs a unique `ID`, `Up` SQL to apply, and `Down` SQL to revert.
+    The `Migrations()` method returns an `fs.FS` containing SQL files. Files are sorted lexicographically, so use numeric prefixes like `001_`, `002_` for ordering.
 
-3. Get the underlying connection and create your repository
+4. Get the underlying connection and create your repository
 
     ```go
     userRepo := NewUserRepository(db.Connection())
@@ -61,7 +81,7 @@ Core Components:
 
     `Connection()` returns the underlying `*sqlx.DB` for your repository operations.
 
-4. Register the repository with the database
+5. Register the repository with the database
 
     ```go
     db.RegisterRepository("users", userRepo)
@@ -69,7 +89,7 @@ Core Components:
 
     Registration enables automatic migration when `Migrate()` is called.
 
-5. Run migrations
+6. Run migrations
 
     ```go
     err = db.Migrate(ctx)
@@ -81,7 +101,7 @@ Core Components:
 
     Migrations are tracked in the `platforma_migrations` table. Only pending migrations are applied.
 
-6. Use your repository
+7. Use your repository
 
     ```go
     user, err := userRepo.Create(ctx, "John Doe")
@@ -111,6 +131,28 @@ app.Run(ctx)
 
 The application runs migrations for all registered databases before starting services.
 
+## Migration file format
+
+Migration files use special markers to separate up and down SQL:
+
+```sql
+-- +migrate Up
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+-- +migrate Down
+DROP TABLE users;
+```
+
+| Marker | Required | Description |
+|--------|----------|-------------|
+| `-- +migrate Up` | Yes | Marks the start of the up migration SQL |
+| `-- +migrate Down` | No | Marks the start of the down migration SQL |
+
+The migration ID is derived from the filename without the `.sql` extension. For example, `001_create_users.sql` becomes ID `001_create_users`.
+
 ## Migration tracking
 
 Migrations are tracked in the `platforma_migrations` table with three columns:
@@ -118,7 +160,7 @@ Migrations are tracked in the `platforma_migrations` table with three columns:
 | Column | Description |
 |--------|-------------|
 | `repository` | Name used in `RegisterRepository` |
-| `id` | Migration ID from your `Migrations()` method |
+| `id` | Migration ID derived from the SQL filename |
 | `timestamp` | When the migration was applied |
 
 If a migration fails, previously applied migrations in the same batch are reverted using their `Down` SQL.
@@ -127,5 +169,8 @@ If a migration fails, previously applied migrations in the same batch are revert
 
 import { Code } from '@astrojs/starlight/components';
 import importedCode from '../../../../../demo-app/cmd/database/main.go?raw';
+import importedMigration from '../../../../../demo-app/cmd/database/001_create_users_table.sql?raw';
 
-<Code code={importedCode} lang="go" title="database.go" />
+<Code code={importedMigration} lang="sql" title="001_create_users_table.sql" />
+
+<Code code={importedCode} lang="go" title="main.go" />

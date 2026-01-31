@@ -1,6 +1,7 @@
 package database
 
 import (
+	"io/fs"
 	"time"
 )
 
@@ -19,5 +20,5 @@ type Migration struct {
 }
 
 type migrator interface {
-	Migrations() []Migration
+	Migrations() fs.FS
 }

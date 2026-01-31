@@ -4,8 +4,10 @@ package database_test
 
 import (
 	"context"
+	"io/fs"
 	"slices"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/platforma-dev/platforma/database"
@@ -148,11 +150,11 @@ func TestMigrate(t *testing.T) {
 			t.Fatalf("database is nil")
 		}
 
-		db.RegisterRepository("some_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
+		db.RegisterRepository("some_repo", simpleRepo{fsys: migrationFS(database.Migration{
+			ID:   "001_init",
 			Up:   "CREATE TABLE IF NOT EXISTS simple_repo (id TEXT)",
 			Down: "DROP TABLE simple_repo",
-		}}})
+		})})
 
 		err = db.Migrate(ctx)
 		if err != nil {
@@ -171,7 +173,7 @@ func TestMigrate(t *testing.T) {
 		}
 
 		if !slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "some_repo" && log.MigrationID == "init"
+			return log.Repository == "some_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to contain init migration for some_repo")
 		}
@@ -199,17 +201,17 @@ func TestMigrate(t *testing.T) {
 			t.Fatalf("database is nil")
 		}
 
-		db.RegisterRepository("some_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
+		db.RegisterRepository("some_repo", simpleRepo{fsys: migrationFS(database.Migration{
+			ID:   "001_init",
 			Up:   "CREATE TABLE IF NOT EXISTS simple_repo (id TEXT)",
 			Down: "DROP TABLE simple_repo",
-		}}})
+		})})
 
-		db.RegisterRepository("other_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
+		db.RegisterRepository("other_repo", simpleRepo{fsys: migrationFS(database.Migration{
+			ID:   "001_init",
 			Up:   "CREATE TABLE IF NOT EXISTS other_repo (id TEXT)",
 			Down: "DROP TABLE other_repo",
-		}}})
+		})})
 
 		err = db.Migrate(ctx)
 		if err != nil {
@@ -228,7 +230,7 @@ func TestMigrate(t *testing.T) {
 		}
 
 		if !slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "some_repo" && log.MigrationID == "init"
+			return log.Repository == "some_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to contain init migration for some_repo")
 		}
@@ -239,7 +241,7 @@ func TestMigrate(t *testing.T) {
 		}
 
 		if !slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "other_repo" && log.MigrationID == "init"
+			return log.Repository == "other_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to contain init migration for other_repo, but only got: %s", migrationLogs)
 		}
@@ -267,21 +269,24 @@ func TestMigrate(t *testing.T) {
 			t.Fatalf("database is nil")
 		}
 
-		db.RegisterRepository("some_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
+		db.RegisterRepository("some_repo", simpleRepo{fsys: migrationFS(database.Migration{
+			ID:   "001_init",
 			Up:   "CREATE TABLE IF NOT EXISTS simple_repo (id TEXT)",
 			Down: "DROP TABLE simple_repo",
-		}}})
+		})})
 
-		db.RegisterRepository("other_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
-			Up:   "CREATE TABLE IF NOT EXISTS other_repo (id TEXT)",
-			Down: "DROP TABLE other_repo",
-		}, {
-			ID:   "failing",
-			Up:   "not even SQL here",
-			Down: "no need for this",
-		}}})
+		db.RegisterRepository("other_repo", simpleRepo{fsys: migrationFS(
+			database.Migration{
+				ID:   "001_init",
+				Up:   "CREATE TABLE IF NOT EXISTS other_repo (id TEXT)",
+				Down: "DROP TABLE other_repo",
+			},
+			database.Migration{
+				ID:   "002_failing",
+				Up:   "not even SQL here",
+				Down: "no need for this",
+			},
+		)})
 
 		err = db.Migrate(ctx)
 		if err == nil {
@@ -309,7 +314,7 @@ func TestMigrate(t *testing.T) {
 
 		// because migration should be reverted
 		if slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "some_repo" && log.MigrationID == "init"
+			return log.Repository == "some_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to not contain init migration for some_repo")
 		}
@@ -321,7 +326,7 @@ func TestMigrate(t *testing.T) {
 
 		// because migration should be reverted
 		if slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "other_repo" && log.MigrationID == "init"
+			return log.Repository == "other_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to not contain init migration for other_repo, but only got: %s", migrationLogs)
 		}
@@ -349,21 +354,24 @@ func TestMigrate(t *testing.T) {
 			t.Fatalf("database is nil")
 		}
 
-		db.RegisterRepository("some_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
+		db.RegisterRepository("some_repo", simpleRepo{fsys: migrationFS(database.Migration{
+			ID:   "001_init",
 			Up:   "CREATE TABLE IF NOT EXISTS simple_repo (id TEXT)",
 			Down: "broken SQL",
-		}}})
+		})})
 
-		db.RegisterRepository("other_repo", simpleRepo{migrations: []database.Migration{{
-			ID:   "init",
-			Up:   "CREATE TABLE IF NOT EXISTS other_repo (id TEXT)",
-			Down: "DROP TABLE other_repo",
-		}, {
-			ID:   "failing",
-			Up:   "not even SQL here",
-			Down: "no need for this",
-		}}})
+		db.RegisterRepository("other_repo", simpleRepo{fsys: migrationFS(
+			database.Migration{
+				ID:   "001_init",
+				Up:   "CREATE TABLE IF NOT EXISTS other_repo (id TEXT)",
+				Down: "DROP TABLE other_repo",
+			},
+			database.Migration{
+				ID:   "002_failing",
+				Up:   "not even SQL here",
+				Down: "no need for this",
+			},
+		)})
 
 		err = db.Migrate(ctx)
 		if err == nil {
@@ -391,14 +399,14 @@ func TestMigrate(t *testing.T) {
 
 		// because migration should be reverted or not even attempted
 		if slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "some_repo" && log.MigrationID == "init"
+			return log.Repository == "some_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to not contain init migration for some_repo")
 		}
 
 		// because migration should be reverted
 		if slices.ContainsFunc(migrationLogs, func(log migrationLog) bool {
-			return log.Repository == "other_repo" && log.MigrationID == "init"
+			return log.Repository == "other_repo" && log.MigrationID == "001_init"
 		}) {
 			t.Fatalf("expected migration log to not contain init migration for other_repo, but only got: %s", migrationLogs)
 		}
@@ -417,9 +425,21 @@ type migrationLog struct {
 }
 
 type simpleRepo struct {
-	migrations []database.Migration
+	fsys fs.FS
 }
 
-func (r simpleRepo) Migrations() []database.Migration {
-	return r.migrations
+func (r simpleRepo) Migrations() fs.FS {
+	return r.fsys
+}
+
+func migrationFS(migrations ...database.Migration) fs.FS {
+	mapFS := make(fstest.MapFS)
+	for _, m := range migrations {
+		content := "-- +migrate Up\n" + m.Up
+		if m.Down != "" {
+			content += "\n\n-- +migrate Down\n" + m.Down
+		}
+		mapFS[m.ID+".sql"] = &fstest.MapFile{Data: []byte(content)}
+	}
+	return mapFS
 }

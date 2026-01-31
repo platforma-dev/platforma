@@ -61,7 +61,11 @@ func (db *Database) Migrate(ctx context.Context) error {
 	// Get migrations from all migrators
 	migrations := []Migration{}
 	for name, migrator := range db.migrators {
-		for _, migr := range migrator.Migrations() {
+		parsed, err := ParseMigrations(migrator.Migrations())
+		if err != nil {
+			return fmt.Errorf("failed to parse migrations for %s: %w", name, err)
+		}
+		for _, migr := range parsed {
 			migr.repository = name
 			migrations = append(migrations, migr)
 		}
