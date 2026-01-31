@@ -3,9 +3,9 @@ package session
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
-
-	"github.com/platforma-dev/platforma/database"
+	"io/fs"
 )
 
 type db interface {
@@ -25,17 +25,11 @@ func NewRepository(db db) *Repository {
 	}
 }
 
-func (r *Repository) Migrations() []database.Migration {
-	return []database.Migration{{
-		ID: "init",
-		Up: `CREATE TABLE IF NOT EXISTS sessions (
-			id VARCHAR(255) PRIMARY KEY,
-			"user" VARCHAR(255),
-			created TIMESTAMP,
-			expires TIMESTAMP
-		)`,
-		Down: "DROP TABLE sessions",
-	}}
+//go:embed *.sql
+var migrations embed.FS
+
+func (r *Repository) Migrations() fs.FS {
+	return migrations
 }
 
 func (r *Repository) Get(ctx context.Context, id string) (*Session, error) {

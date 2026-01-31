@@ -1,0 +1,194 @@
+package database_test
+
+import (
+	"testing"
+	"testing/fstest"
+
+	"github.com/platforma-dev/platforma/database"
+)
+
+func TestParseMigrations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("parses single migration with up and down", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nCREATE TABLE users (id INT);\n\n-- +migrate Down\nDROP TABLE users;"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 1 {
+			t.Fatalf("expected 1 migration, got %d", len(migrations))
+		}
+
+		if migrations[0].ID != "001_init" {
+			t.Errorf("expected ID '001_init', got '%s'", migrations[0].ID)
+		}
+
+		if migrations[0].Up != "CREATE TABLE users (id INT);" {
+			t.Errorf("expected Up 'CREATE TABLE users (id INT);', got '%s'", migrations[0].Up)
+		}
+
+		if migrations[0].Down != "DROP TABLE users;" {
+			t.Errorf("expected Down 'DROP TABLE users;', got '%s'", migrations[0].Down)
+		}
+	})
+
+	t.Run("parses migration with up only", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 1 {
+			t.Fatalf("expected 1 migration, got %d", len(migrations))
+		}
+
+		if migrations[0].Up != "CREATE TABLE users (id INT);" {
+			t.Errorf("expected Up 'CREATE TABLE users (id INT);', got '%s'", migrations[0].Up)
+		}
+
+		if migrations[0].Down != "" {
+			t.Errorf("expected empty Down, got '%s'", migrations[0].Down)
+		}
+	})
+
+	t.Run("sorts migrations lexicographically", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"002_second.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nSECOND"),
+			},
+			"001_first.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nFIRST"),
+			},
+			"003_third.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nTHIRD"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 3 {
+			t.Fatalf("expected 3 migrations, got %d", len(migrations))
+		}
+
+		if migrations[0].ID != "001_first" {
+			t.Errorf("expected first migration ID '001_first', got '%s'", migrations[0].ID)
+		}
+
+		if migrations[1].ID != "002_second" {
+			t.Errorf("expected second migration ID '002_second', got '%s'", migrations[1].ID)
+		}
+
+		if migrations[2].ID != "003_third" {
+			t.Errorf("expected third migration ID '003_third', got '%s'", migrations[2].ID)
+		}
+	})
+
+	t.Run("ignores non-sql files", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+			"readme.txt": &fstest.MapFile{
+				Data: []byte("This is a readme"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 1 {
+			t.Fatalf("expected 1 migration, got %d", len(migrations))
+		}
+	})
+
+	t.Run("errors on missing up section", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Down\nDROP TABLE users;"),
+			},
+		}
+
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for missing Up section")
+		}
+	})
+
+	t.Run("errors on empty up section", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\n\n-- +migrate Down\nDROP TABLE users;"),
+			},
+		}
+
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for empty Up section")
+		}
+	})
+
+	t.Run("handles empty filesystem", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 0 {
+			t.Fatalf("expected 0 migrations, got %d", len(migrations))
+		}
+	})
+
+	t.Run("handles multiline SQL statements", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nCREATE TABLE users (\n\tid INT,\n\tname TEXT\n);\n\n-- +migrate Down\nDROP TABLE users;"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		expected := "CREATE TABLE users (\n\tid INT,\n\tname TEXT\n);"
+		if migrations[0].Up != expected {
+			t.Errorf("expected Up:\n%s\n\ngot:\n%s", expected, migrations[0].Up)
+		}
+	})
+}

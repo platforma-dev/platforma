@@ -85,26 +85,32 @@ server.Handle("/api", api)
 
 ## DATABASE MIGRATIONS
 
-Migrations live in the repository and run automatically on startup:
+Migrations are written in `.sql` files and embedded via `fs.FS`. Each file contains up and down scripts separated by markers:
+
+```sql
+-- 001_create_users.sql
+-- +migrate Up
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL
+);
+
+-- +migrate Down
+DROP TABLE users;
+```
+
+Repository returns embedded migrations:
 
 ```go
-func (r *Repository) Migrations() []database.Migration {
-    return []database.Migration{
-        {
-            Name: "001_create_users_table",
-            Up: `CREATE TABLE users (
-                id UUID PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW()
-            )`,
-        },
-        {
-            Name: "002_add_status_column",
-            Up: `ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`,
-        },
-    }
+//go:embed *.sql
+var migrations embed.FS
+
+func (r *Repository) Migrations() fs.FS {
+    return migrations
 }
 ```
+
+Migration files are sorted lexicographically by filename. Use numeric prefixes for ordering: `001_`, `002_`, etc.
 
 ## BACKGROUND JOBS
 

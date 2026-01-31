@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/jmoiron/sqlx"
@@ -27,15 +29,11 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// Migrations returns the list of migrations for the users table
-func (r *UserRepository) Migrations() []database.Migration {
-	return []database.Migration{
-		{
-			ID:   "create_users_table",
-			Up:   "CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL)",
-			Down: "DROP TABLE users",
-		},
-	}
+//go:embed *.sql
+var migrations embed.FS
+
+func (r *UserRepository) Migrations() fs.FS {
+	return migrations
 }
 
 // Create inserts a new user into the database
