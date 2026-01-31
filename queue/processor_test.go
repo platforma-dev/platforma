@@ -3,6 +3,7 @@ package queue_test
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,14 +16,14 @@ func TestProcessor(t *testing.T) {
 	t.Run("simple queue", func(t *testing.T) {
 		t.Parallel()
 		ctx := context.Background()
-		res := 0
+		var res atomic.Int32
 
 		q := &mockQueue[job]{
 			jobChan: make(chan job, 10),
 		}
 
 		p := queue.New(queue.HandlerFunc[job](func(_ context.Context, job job) {
-			res += job.data
+			res.Add(int32(job.data))
 		}), q, 4, time.Microsecond)
 
 		go p.Run(context.TODO())
@@ -31,10 +32,10 @@ func TestProcessor(t *testing.T) {
 		p.Enqueue(ctx, job{data: 1})
 		p.Enqueue(ctx, job{data: 1})
 
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 
-		if res != 3 {
-			t.Errorf("expected res to be 1, got %d", res)
+		if res.Load() != 3 {
+			t.Errorf("expected res to be 3, got %d", res.Load())
 		}
 	})
 
