@@ -13,14 +13,19 @@ import (
 const (
 	markerUp   = "-- +migrate Up"
 	markerDown = "-- +migrate Down"
+	markerID   = "-- +migrate ID:"
 )
 
-var errMissingUpSection = errors.New("missing or empty Up section")
+var (
+	errMissingUpSection = errors.New("missing or empty Up section")
+	errEmptyIDOverride  = errors.New("empty ID override")
+)
 
 // ParseMigrations parses SQL migration files from an fs.FS.
 // Files must have .sql extension and contain -- +migrate Up marker.
 // The -- +migrate Down marker is optional.
-// Migration ID is derived from the filename without extension.
+// Migration ID is derived from the filename without extension,
+// unless overridden with -- +migrate ID: <custom_id> before the Up section.
 // Migrations are returned sorted lexicographically by filename.
 func ParseMigrations(fsys fs.FS) ([]Migration, error) {
 	entries, err := fs.ReadDir(fsys, ".")
@@ -61,6 +66,7 @@ func parseMigrationFile(fsys fs.FS, filename string) (Migration, error) {
 	defer func() { _ = file.Close() }()
 
 	id := strings.TrimSuffix(filename, ".sql")
+	idOverridden := false
 
 	var upBuilder, downBuilder strings.Builder
 	var currentSection *strings.Builder
@@ -76,6 +82,17 @@ func parseMigrationFile(fsys fs.FS, filename string) (Migration, error) {
 			continue
 		case markerDown:
 			currentSection = &downBuilder
+			continue
+		}
+
+		// Check for ID override marker (only before Up section)
+		if currentSection == nil && !idOverridden && strings.HasPrefix(trimmed, markerID) {
+			overrideID := strings.TrimSpace(strings.TrimPrefix(trimmed, markerID))
+			if overrideID == "" {
+				return Migration{}, errEmptyIDOverride
+			}
+			id = overrideID
+			idOverridden = true
 			continue
 		}
 
