@@ -17,10 +17,10 @@ const (
 )
 
 var (
-	errMissingUpSection   = errors.New("missing or empty Up section")
-	errEmptyIDOverride    = errors.New("empty ID override")
-	errDuplicateIDMarker  = errors.New("duplicate ID override marker")
-	errIDMarkerNotFirst   = errors.New("ID override marker must be the first marker")
+	errMissingUpSection  = errors.New("missing or empty Up section")
+	errEmptyIDOverride   = errors.New("empty ID override")
+	errDuplicateIDMarker = errors.New("duplicate ID override marker")
+	errIDMarkerNotFirst  = errors.New("ID override marker must be the first marker")
 )
 
 // ParseMigrations parses SQL migration files from an fs.FS.
