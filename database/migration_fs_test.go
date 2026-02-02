@@ -249,7 +249,7 @@ func TestParseMigrations(t *testing.T) {
 		}
 	})
 
-	t.Run("uses first ID override when multiple present", func(t *testing.T) {
+	t.Run("errors on duplicate ID override", func(t *testing.T) {
 		t.Parallel()
 
 		fsys := fstest.MapFS{
@@ -258,32 +258,24 @@ func TestParseMigrations(t *testing.T) {
 			},
 		}
 
-		migrations, err := database.ParseMigrations(fsys)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if migrations[0].ID != "first_id" {
-			t.Errorf("expected ID 'first_id', got '%s'", migrations[0].ID)
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for duplicate ID override")
 		}
 	})
 
-	t.Run("ignores ID marker after Up section", func(t *testing.T) {
+	t.Run("errors on ID marker after Up section", func(t *testing.T) {
 		t.Parallel()
 
 		fsys := fstest.MapFS{
 			"001_init.sql": &fstest.MapFile{
-				Data: []byte("-- +migrate Up\nCREATE TABLE users (id INT);\n-- +migrate ID: should_be_ignored"),
+				Data: []byte("-- +migrate Up\nCREATE TABLE users (id INT);\n-- +migrate ID: should_error"),
 			},
 		}
 
-		migrations, err := database.ParseMigrations(fsys)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if migrations[0].ID != "001_init" {
-			t.Errorf("expected ID '001_init', got '%s'", migrations[0].ID)
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for ID marker after Up section")
 		}
 	})
 

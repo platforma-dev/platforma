@@ -17,15 +17,18 @@ const (
 )
 
 var (
-	errMissingUpSection = errors.New("missing or empty Up section")
-	errEmptyIDOverride  = errors.New("empty ID override")
+	errMissingUpSection   = errors.New("missing or empty Up section")
+	errEmptyIDOverride    = errors.New("empty ID override")
+	errDuplicateIDMarker  = errors.New("duplicate ID override marker")
+	errIDMarkerNotFirst   = errors.New("ID override marker must be the first marker")
 )
 
 // ParseMigrations parses SQL migration files from an fs.FS.
 // Files must have .sql extension and contain -- +migrate Up marker.
 // The -- +migrate Down marker is optional.
 // Migration ID is derived from the filename without extension,
-// unless overridden with -- +migrate ID: <custom_id> before the Up section.
+// unless overridden with -- +migrate ID: <custom_id> as the first marker.
+// Only one ID override marker is allowed and it must appear before any other markers.
 // Migrations are returned sorted lexicographically by filename.
 func ParseMigrations(fsys fs.FS) ([]Migration, error) {
 	entries, err := fs.ReadDir(fsys, ".")
@@ -67,6 +70,7 @@ func parseMigrationFile(fsys fs.FS, filename string) (Migration, error) {
 
 	id := strings.TrimSuffix(filename, ".sql")
 	idOverridden := false
+	anyMarkerSeen := false
 
 	var upBuilder, downBuilder strings.Builder
 	var currentSection *strings.Builder
@@ -76,23 +80,32 @@ func parseMigrationFile(fsys fs.FS, filename string) (Migration, error) {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
 
-		switch trimmed {
-		case markerUp:
-			currentSection = &upBuilder
-			continue
-		case markerDown:
-			currentSection = &downBuilder
-			continue
-		}
-
-		// Check for ID override marker (only before Up section)
-		if currentSection == nil && !idOverridden && strings.HasPrefix(trimmed, markerID) {
+		// Check for ID override marker
+		if strings.HasPrefix(trimmed, markerID) {
+			if idOverridden {
+				return Migration{}, errDuplicateIDMarker
+			}
+			if anyMarkerSeen {
+				return Migration{}, errIDMarkerNotFirst
+			}
 			overrideID := strings.TrimSpace(strings.TrimPrefix(trimmed, markerID))
 			if overrideID == "" {
 				return Migration{}, errEmptyIDOverride
 			}
 			id = overrideID
 			idOverridden = true
+			anyMarkerSeen = true
+			continue
+		}
+
+		switch trimmed {
+		case markerUp:
+			currentSection = &upBuilder
+			anyMarkerSeen = true
+			continue
+		case markerDown:
+			currentSection = &downBuilder
+			anyMarkerSeen = true
 			continue
 		}
 
