@@ -78,7 +78,7 @@ func parseMigrationFile(fsys fs.FS, filename string) (Migration, error) {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimRight(scanner.Text(), "\r")
 		trimmed := strings.TrimSpace(line)
 
 		// Check for ID override marker
