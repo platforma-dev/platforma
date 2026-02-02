@@ -29,6 +29,7 @@ var (
 // Migration ID is derived from the filename without extension,
 // unless overridden with -- +migrate ID: <custom_id> as the first marker.
 // Only one ID override marker is allowed and it must appear before any other markers.
+// Returns an error if ID marker appears after Up/Down markers or if multiple ID markers exist.
 // Migrations are returned sorted lexicographically by filename.
 func ParseMigrations(fsys fs.FS) ([]Migration, error) {
 	entries, err := fs.ReadDir(fsys, ".")
