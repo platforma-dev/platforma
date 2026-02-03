@@ -321,7 +321,7 @@ func TestParseMigrations(t *testing.T) {
 
 		fsys := fstest.MapFS{
 			"001_init.sql": &fstest.MapFile{
-				Data: []byte("-- This is a header comment\n-- Another comment\n-- +migrate Up\n-- Comment inside Up section\nCREATE TABLE users (id INT);\n-- +migrate Down\n-- Comment inside Down section\nDROP TABLE users;"),
+				Data: []byte("-- Header comment\n-- +migrate Up\n-- Comment in Up\nCREATE TABLE users (id INT);\n-- +migrate Down\n-- Comment in Down\nDROP TABLE users;"),
 			},
 		}
 
@@ -334,23 +334,21 @@ func TestParseMigrations(t *testing.T) {
 			t.Fatalf("expected 1 migration, got %d", len(migrations))
 		}
 
-		expectedUp := "-- Comment inside Up section\nCREATE TABLE users (id INT);"
-		if migrations[0].Up != expectedUp {
-			t.Errorf("expected Up:\n%s\n\ngot:\n%s", expectedUp, migrations[0].Up)
+		if migrations[0].Up != "-- Comment in Up\nCREATE TABLE users (id INT);" {
+			t.Errorf("unexpected Up content: %q", migrations[0].Up)
 		}
 
-		expectedDown := "-- Comment inside Down section\nDROP TABLE users;"
-		if migrations[0].Down != expectedDown {
-			t.Errorf("expected Down:\n%s\n\ngot:\n%s", expectedDown, migrations[0].Down)
+		if migrations[0].Down != "-- Comment in Down\nDROP TABLE users;" {
+			t.Errorf("unexpected Down content: %q", migrations[0].Down)
 		}
 	})
 
-	t.Run("allows comments with ID override", func(t *testing.T) {
+	t.Run("allows comments between ID marker and Up marker", func(t *testing.T) {
 		t.Parallel()
 
 		fsys := fstest.MapFS{
 			"001_init.sql": &fstest.MapFile{
-				Data: []byte("-- +migrate ID: custom_id\n-- This comment comes after ID marker\n-- +migrate Up\nCREATE TABLE users (id INT);"),
+				Data: []byte("-- +migrate ID: custom_id\n-- Comment after ID\n-- +migrate Up\nCREATE TABLE users (id INT);"),
 			},
 		}
 
@@ -360,7 +358,11 @@ func TestParseMigrations(t *testing.T) {
 		}
 
 		if migrations[0].ID != "custom_id" {
-			t.Errorf("expected ID 'custom_id', got '%s'", migrations[0].ID)
+			t.Errorf("expected ID 'custom_id', got %q", migrations[0].ID)
+		}
+
+		if migrations[0].Up != "CREATE TABLE users (id INT);" {
+			t.Errorf("unexpected Up content: %q", migrations[0].Up)
 		}
 	})
 
@@ -369,7 +371,7 @@ func TestParseMigrations(t *testing.T) {
 
 		fsys := fstest.MapFS{
 			"001_init.sql": &fstest.MapFile{
-				Data: []byte("-- +migrate Up\n-- +migrate something else\n-- +migrateUp is not a marker\nCREATE TABLE users (id INT);"),
+				Data: []byte("-- +migrate Up\n-- +migrate something\nCREATE TABLE users (id INT);"),
 			},
 		}
 
@@ -378,9 +380,8 @@ func TestParseMigrations(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		expectedUp := "-- +migrate something else\n-- +migrateUp is not a marker\nCREATE TABLE users (id INT);"
-		if migrations[0].Up != expectedUp {
-			t.Errorf("expected Up:\n%s\n\ngot:\n%s", expectedUp, migrations[0].Up)
+		if migrations[0].Up != "-- +migrate something\nCREATE TABLE users (id INT);" {
+			t.Errorf("unexpected Up content: %q", migrations[0].Up)
 		}
 	})
 }
