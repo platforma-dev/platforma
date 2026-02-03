@@ -3,13 +3,14 @@ title: database
 ---
 import { LinkButton, Steps } from '@astrojs/starlight/components';
 
-The `database` package provides PostgreSQL database connection and automatic migration functionality.
+The `database` package provides PostgreSQL connection management with built-in migration support using sqlx.
 
 Core Components:
 
-- `Database`: Manages database connection, repository registration, and migration execution
-- `Migration`: Represents a database migration with `ID`, `Up`, and `Down` SQL statements
-- `migrator` interface: Repositories implementing `Migrations() fs.FS` are automatically migrated
+- `Database`: Database connection with migration orchestration capabilities.
+- `Migration`: Represents a single database migration with Up and Down SQL statements.
+- `New(connection string) (*Database, error)`: Creates a new PostgreSQL database connection.
+- `ParseMigrations(fsys fs.FS) ([]Migration, error)`: Parses SQL migration files from a filesystem.
 
 [Full package docs at pkg.go.dev](https://pkg.go.dev/github.com/platforma-dev/platforma/database)
 
@@ -17,7 +18,7 @@ Core Components:
 
 <Steps>
 
-1. Create a new database connection
+ 1. Create a database connection
 
     ```go
     db, err := database.New("postgres://user:password@localhost:5432/mydb?sslmode=disable")
@@ -27,109 +28,105 @@ Core Components:
     }
     ```
 
-    The connection string follows standard PostgreSQL format.
+    This establishes a PostgreSQL connection using the provided connection string.
 
-2. Create a SQL migration file
-
-    ```sql
-    // 001_create_users_table.sql
-    -- +migrate Up
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL
-    );
-
-    -- +migrate Down
-    DROP TABLE users;
-    ```
-
-    Each migration file contains `-- +migrate Up` (required) and `-- +migrate Down` (optional) sections. The migration ID is derived from the filename.
-
-3. Define a repository that embeds migrations
+2. Define your repository with migrations
 
     ```go
-    import (
-        "embed"
-        "io/fs"
-
-        "github.com/jmoiron/sqlx"
-    )
-
-    //go:embed *.sql
-    var migrations embed.FS
-
     type UserRepository struct {
         db *sqlx.DB
     }
 
-    func NewUserRepository(db *sqlx.DB) *UserRepository {
-        return &UserRepository{db: db}
-    }
+    //go:embed *.sql
+    var migrations embed.FS
 
     func (r *UserRepository) Migrations() fs.FS {
         return migrations
     }
     ```
 
-    The `Migrations()` method returns an `fs.FS` containing SQL files. Files are sorted lexicographically, so use numeric prefixes like `001_`, `002_` for ordering.
+    The `Migrations()` method returns a filesystem containing SQL migration files.
 
-4. Get the underlying connection and create your repository
+3. Create SQL migration files
+
+    ```sql
+    -- 001_create_users_table.sql
+    -- +migrate Up
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL
+    );
+
+    -- +migrate Down
+    DROP TABLE users;
+    ```
+
+    Migration files use `-- +migrate Up` and `-- +migrate Down` markers to define schema changes.
+
+4. Register your repository
 
     ```go
     userRepo := NewUserRepository(db.Connection())
-    ```
-
-    `Connection()` returns the underlying `*sqlx.DB` for your repository operations.
-
-5. Register the repository with the database
-
-    ```go
     db.RegisterRepository("users", userRepo)
     ```
 
-    Registration enables automatic migration when `Migrate()` is called.
+    Repositories that implement the `Migrations()` method returning `fs.FS` will automatically be registered for migration.
 
-6. Run migrations
+5. Run migrations
 
     ```go
     err = db.Migrate(ctx)
     if err != nil {
-        log.ErrorContext(ctx, "migration failed", "error", err)
+        log.ErrorContext(ctx, "failed to run migrations", "error", err)
         os.Exit(1)
     }
     ```
 
-    Migrations are tracked in the `platforma_migrations` table. Only pending migrations are applied.
+    This applies all pending migrations and tracks them in the `platforma_migrations` table.
 
-7. Use your repository
+6. Use the database connection
 
     ```go
-    user, err := userRepo.Create(ctx, "John Doe")
+    var users []User
+    err := db.Connection().SelectContext(ctx, &users, "SELECT id, name, email FROM users")
     ```
 
-    After migrations complete, your tables are ready for use.
+    Access the underlying `sqlx.DB` connection through the `Connection()` method.
 
 </Steps>
 
 ## Using with Application
 
-When using the `application` package, databases are migrated automatically during startup:
+The `Database` type does not implement the `Runner` interface. Instead, it's registered with the application using the dedicated database registration methods:
 
 ```go
 app := application.New()
 
-db, _ := database.New("postgres://user:pass@localhost:5432/mydb?sslmode=disable")
+// Register database connection
 app.RegisterDatabase("main", db)
 
-userRepo := NewUserRepository(db.Connection())
+// Register repositories with the database
 app.RegisterRepository("main", "users", userRepo)
 
+// Register services
 app.RegisterService("api", httpServer)
 
+// Run the application (starts services)
 app.Run(ctx)
 ```
 
-The application runs migrations for all registered databases before starting services.
+Migrations are NOT run automatically when starting services. You must run migrations separately using the CLI:
+
+```bash
+# Run migrations first
+myapp migrate
+
+# Then start services
+myapp run
+```
+
+If migrations fail, the application will exit with an error.
 
 ## Migration file format
 
