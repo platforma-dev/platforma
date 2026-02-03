@@ -66,7 +66,7 @@ func TestChanQueue(t *testing.T) {
 		t.Parallel()
 
 		ctx, cancel := context.WithCancel(context.Background())
-		q := queue.NewChanQueue[job](0, 3*time.Second)
+		q := queue.NewChanQueue[job](0, 30*time.Second)
 
 		err := q.Open(ctx)
 		if err != nil {
@@ -75,7 +75,7 @@ func TestChanQueue(t *testing.T) {
 		defer q.Close(ctx)
 
 		go func() {
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 			cancel()
 		}()
 

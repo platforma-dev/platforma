@@ -15,7 +15,8 @@ func TestProcessor(t *testing.T) {
 
 	t.Run("simple queue", func(t *testing.T) {
 		t.Parallel()
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		var res atomic.Int32
 
 		q := &mockQueue[job]{
@@ -26,13 +27,17 @@ func TestProcessor(t *testing.T) {
 			res.Add(int32(job.data))
 		}), q, 4, time.Microsecond)
 
-		go p.Run(context.TODO())
+		go p.Run(ctx)
 
 		p.Enqueue(ctx, job{data: 1})
 		p.Enqueue(ctx, job{data: 1})
 		p.Enqueue(ctx, job{data: 1})
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait with timeout for jobs to be processed
+		deadline := time.Now().Add(5 * time.Second)
+		for res.Load() != 3 && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
 
 		if res.Load() != 3 {
 			t.Errorf("expected res to be 3, got %d", res.Load())
@@ -99,10 +104,10 @@ func TestProcessor(t *testing.T) {
 
 			p := queue.New(queue.HandlerFunc[job](func(_ context.Context, job job) {
 				res += job.data
-			}), q, 4, time.Microsecond)
+			}), q, 4, time.Millisecond)
 
 			go func() {
-				time.Sleep(1 * time.Second)
+				time.Sleep(100 * time.Millisecond)
 				cancel()
 			}()
 

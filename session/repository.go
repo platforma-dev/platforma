@@ -25,11 +25,12 @@ func NewRepository(db db) *Repository {
 	}
 }
 
-//go:embed *.sql
+//go:embed migrations/*.sql
 var migrations embed.FS
 
 func (r *Repository) Migrations() fs.FS {
-	return migrations
+	m, _ := fs.Sub(migrations, "migrations")
+	return m
 }
 
 func (r *Repository) Get(ctx context.Context, id string) (*Session, error) {

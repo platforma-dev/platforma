@@ -191,4 +191,197 @@ func TestParseMigrations(t *testing.T) {
 			t.Errorf("expected Up:\n%s\n\ngot:\n%s", expected, migrations[0].Up)
 		}
 	})
+
+	t.Run("parses migration with ID override", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID: custom_migration_id\n-- +migrate Up\nCREATE TABLE users (id INT);\n\n-- +migrate Down\nDROP TABLE users;"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 1 {
+			t.Fatalf("expected 1 migration, got %d", len(migrations))
+		}
+
+		if migrations[0].ID != "custom_migration_id" {
+			t.Errorf("expected ID 'custom_migration_id', got '%s'", migrations[0].ID)
+		}
+
+		if migrations[0].Up != "CREATE TABLE users (id INT);" {
+			t.Errorf("expected Up 'CREATE TABLE users (id INT);', got '%s'", migrations[0].Up)
+		}
+	})
+
+	t.Run("errors on empty ID override", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID:\n-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for empty ID override")
+		}
+	})
+
+	t.Run("errors on ID override with only whitespace", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID:   \n-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for ID override with only whitespace")
+		}
+	})
+
+	t.Run("errors on duplicate ID override", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID: first_id\n-- +migrate ID: second_id\n-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for duplicate ID override")
+		}
+	})
+
+	t.Run("errors on ID marker after Up section", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nCREATE TABLE users (id INT);\n-- +migrate ID: should_error"),
+			},
+		}
+
+		_, err := database.ParseMigrations(fsys)
+		if err == nil {
+			t.Fatal("expected error for ID marker after Up section")
+		}
+	})
+
+	t.Run("parses mixed migrations with and without ID override", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_first.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID: custom_first\n-- +migrate Up\nFIRST"),
+			},
+			"002_second.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\nSECOND"),
+			},
+			"003_third.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID: custom_third\n-- +migrate Up\nTHIRD"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 3 {
+			t.Fatalf("expected 3 migrations, got %d", len(migrations))
+		}
+
+		if migrations[0].ID != "custom_first" {
+			t.Errorf("expected first migration ID 'custom_first', got '%s'", migrations[0].ID)
+		}
+
+		if migrations[1].ID != "002_second" {
+			t.Errorf("expected second migration ID '002_second', got '%s'", migrations[1].ID)
+		}
+
+		if migrations[2].ID != "custom_third" {
+			t.Errorf("expected third migration ID 'custom_third', got '%s'", migrations[2].ID)
+		}
+	})
+
+	t.Run("allows regular comments in migration files", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- Header comment\n-- +migrate Up\n-- Comment in Up\nCREATE TABLE users (id INT);\n-- +migrate Down\n-- Comment in Down\nDROP TABLE users;"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 1 {
+			t.Fatalf("expected 1 migration, got %d", len(migrations))
+		}
+
+		if migrations[0].Up != "-- Comment in Up\nCREATE TABLE users (id INT);" {
+			t.Errorf("unexpected Up content: %q", migrations[0].Up)
+		}
+
+		if migrations[0].Down != "-- Comment in Down\nDROP TABLE users;" {
+			t.Errorf("unexpected Down content: %q", migrations[0].Down)
+		}
+	})
+
+	t.Run("allows comments between ID marker and Up marker", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID: custom_id\n-- Comment after ID\n-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if migrations[0].ID != "custom_id" {
+			t.Errorf("expected ID 'custom_id', got %q", migrations[0].ID)
+		}
+
+		if migrations[0].Up != "CREATE TABLE users (id INT);" {
+			t.Errorf("unexpected Up content: %q", migrations[0].Up)
+		}
+	})
+
+	t.Run("does not treat similar comments as markers", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\n-- +migrate something\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if migrations[0].Up != "-- +migrate something\nCREATE TABLE users (id INT);" {
+			t.Errorf("unexpected Up content: %q", migrations[0].Up)
+		}
+	})
 }
