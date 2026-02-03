@@ -315,4 +315,72 @@ func TestParseMigrations(t *testing.T) {
 			t.Errorf("expected third migration ID 'custom_third', got '%s'", migrations[2].ID)
 		}
 	})
+
+	t.Run("allows regular comments in migration files", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- This is a header comment\n-- Another comment\n-- +migrate Up\n-- Comment inside Up section\nCREATE TABLE users (id INT);\n-- +migrate Down\n-- Comment inside Down section\nDROP TABLE users;"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(migrations) != 1 {
+			t.Fatalf("expected 1 migration, got %d", len(migrations))
+		}
+
+		expectedUp := "-- Comment inside Up section\nCREATE TABLE users (id INT);"
+		if migrations[0].Up != expectedUp {
+			t.Errorf("expected Up:\n%s\n\ngot:\n%s", expectedUp, migrations[0].Up)
+		}
+
+		expectedDown := "-- Comment inside Down section\nDROP TABLE users;"
+		if migrations[0].Down != expectedDown {
+			t.Errorf("expected Down:\n%s\n\ngot:\n%s", expectedDown, migrations[0].Down)
+		}
+	})
+
+	t.Run("allows comments with ID override", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate ID: custom_id\n-- This comment comes after ID marker\n-- +migrate Up\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if migrations[0].ID != "custom_id" {
+			t.Errorf("expected ID 'custom_id', got '%s'", migrations[0].ID)
+		}
+	})
+
+	t.Run("does not treat similar comments as markers", func(t *testing.T) {
+		t.Parallel()
+
+		fsys := fstest.MapFS{
+			"001_init.sql": &fstest.MapFile{
+				Data: []byte("-- +migrate Up\n-- +migrate something else\n-- +migrateUp is not a marker\nCREATE TABLE users (id INT);"),
+			},
+		}
+
+		migrations, err := database.ParseMigrations(fsys)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		expectedUp := "-- +migrate something else\n-- +migrateUp is not a marker\nCREATE TABLE users (id INT);"
+		if migrations[0].Up != expectedUp {
+			t.Errorf("expected Up:\n%s\n\ngot:\n%s", expectedUp, migrations[0].Up)
+		}
+	})
 }
