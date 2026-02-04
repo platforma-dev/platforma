@@ -20,7 +20,6 @@ platforma/
 ├── queue/           # Job processor
 ├── scheduler/       # Periodic tasks
 ├── log/             # Structured logging
-├── internal/cli/    # CLI (private)
 └── demo-app/        # Examples (excluded from linting)
 ```
 
