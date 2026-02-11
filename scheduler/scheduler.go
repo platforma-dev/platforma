@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/google/uuid"
 	cron "github.com/pardnchiu/go-scheduler"
 )
+
+var errEmptyCronExpression = errors.New("cron expression cannot be empty")
 
 // Scheduler represents a periodic task runner that executes an action based on a cron expression.
 type Scheduler struct {
@@ -38,7 +41,7 @@ type Scheduler struct {
 func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
 	// Check for empty expression first to avoid library panic
 	if cronExpr == "" {
-		return nil, fmt.Errorf("invalid cron expression %q: expression cannot be empty", cronExpr)
+		return nil, fmt.Errorf("invalid cron expression %q: %w", cronExpr, errEmptyCronExpression)
 	}
 
 	// Validate the cron expression by attempting to create a scheduler
@@ -77,10 +80,11 @@ func (s *Scheduler) Run(ctx context.Context) error {
 		err := s.runner.Run(runCtx)
 		if err != nil {
 			log.ErrorContext(runCtx, "error in scheduler", "error", err)
+			return fmt.Errorf("scheduler runner failed: %w", err)
 		}
 
 		log.InfoContext(runCtx, "scheduler task finished")
-		return err
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add cron task: %w", err)
