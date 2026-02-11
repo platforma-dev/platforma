@@ -77,7 +77,9 @@ func main() {
 	fmt.Println("  3. Daily at midnight (@daily) - won't execute in demo")
 	fmt.Println("  4. Weekdays at 9 AM (0 9 * * MON-FRI) - won't execute in demo")
 	fmt.Println("  5. Hourly (@hourly) - won't execute in demo")
-	fmt.Println("\nWatch the logs for executions. Demo will run for 15 seconds.\n")
+	fmt.Println()
+	fmt.Println("Watch the logs for executions. Demo will run for 15 seconds.")
+	fmt.Println()
 
 	// Start all schedulers in background
 	go s1.Run(ctx)
@@ -93,5 +95,6 @@ func main() {
 	// Allow graceful shutdown
 	time.Sleep(100 * time.Millisecond)
 
-	fmt.Println("\nDemo completed!")
+	fmt.Println()
+	fmt.Println("Demo completed!")
 }

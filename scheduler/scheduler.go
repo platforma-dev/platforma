@@ -10,10 +10,17 @@ import (
 	"github.com/platforma-dev/platforma/log"
 
 	"github.com/google/uuid"
-	cron "github.com/pardnchiu/go-scheduler"
+	cron "github.com/robfig/cron/v3"
 )
 
 var errEmptyCronExpression = errors.New("cron expression cannot be empty")
+
+const cronParseOptions = cron.Minute |
+	cron.Hour |
+	cron.Dom |
+	cron.Month |
+	cron.Dow |
+	cron.Descriptor
 
 // Scheduler represents a periodic task runner that executes an action based on a cron expression.
 type Scheduler struct {
@@ -39,20 +46,15 @@ type Scheduler struct {
 //
 // Returns an error if the cron expression is invalid.
 func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
-	// Check for empty expression first to avoid library panic
+	// Check for empty expression first to avoid parser errors
 	if cronExpr == "" {
 		return nil, fmt.Errorf("invalid cron expression %q: %w", cronExpr, errEmptyCronExpression)
 	}
 
-	// Validate the cron expression by attempting to create a scheduler
-	testScheduler, err := cron.New(cron.Config{Location: time.UTC})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cron validator: %w", err)
-	}
+	parser := cron.NewParser(cronParseOptions)
 
-	// Attempt to add a test task to validate the expression
-	_, err = testScheduler.Add(cronExpr, func() {})
-	if err != nil {
+	// Validate expression eagerly so errors are returned from constructor
+	if _, err := parser.Parse(cronExpr); err != nil {
 		return nil, fmt.Errorf("invalid cron expression %q: %w", cronExpr, err)
 	}
 
@@ -65,38 +67,34 @@ func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
 // Run starts the scheduler and executes the runner according to the cron schedule.
 // The scheduler will continue running until the context is canceled.
 func (s *Scheduler) Run(ctx context.Context) error {
-	// Create a new cron scheduler
-	cronScheduler, err := cron.New(cron.Config{Location: time.UTC})
-	if err != nil {
-		return fmt.Errorf("failed to create cron scheduler: %w", err)
-	}
+	parser := cron.NewParser(cronParseOptions)
 
-	// Add the task to the cron scheduler
-	// Wrap the runner to maintain consistent logging with trace IDs
-	_, err = cronScheduler.Add(s.cronExpr, func() error {
+	cronScheduler := cron.New(
+		cron.WithLocation(time.UTC),
+		cron.WithParser(parser),
+	)
+
+	// Wrap runner to maintain consistent logging with trace IDs
+	_, err := cronScheduler.AddFunc(s.cronExpr, func() {
 		runCtx := context.WithValue(ctx, log.TraceIDKey, uuid.NewString())
 		log.InfoContext(runCtx, "scheduler task started")
 
 		err := s.runner.Run(runCtx)
 		if err != nil {
 			log.ErrorContext(runCtx, "error in scheduler", "error", err)
-			return fmt.Errorf("scheduler runner failed: %w", err)
+			return
 		}
 
 		log.InfoContext(runCtx, "scheduler task finished")
-		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add cron task: %w", err)
 	}
 
-	// Start the cron scheduler
 	cronScheduler.Start()
 
-	// Wait for context cancellation
 	<-ctx.Done()
 
-	// Stop the cron scheduler and wait for tasks to complete
 	stopCtx := cronScheduler.Stop()
 	<-stopCtx.Done()
 
