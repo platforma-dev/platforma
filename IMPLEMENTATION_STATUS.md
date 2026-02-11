@@ -2,39 +2,43 @@
 
 ## ✅ Completed
 
-### Core Implementation
-- ✅ Updated `scheduler/scheduler.go` with dual-mode support (interval + cron)
-- ✅ Added `scheduleMode` enum to distinguish between scheduling strategies
-- ✅ Implemented `NewWithCron(cronExpr, runner)` constructor with validation
-- ✅ Updated `Run()` method to delegate to `runInterval()` or `runCron()`
-- ✅ Maintained backward compatibility - existing `New()` unchanged
+### Core Implementation (Breaking Change)
+- ✅ Refactored `scheduler/scheduler.go` to use cron expressions exclusively
+- ✅ Updated `New()` constructor to accept cron expressions instead of `time.Duration`
+- ✅ Removed dual-mode complexity - unified API with single scheduling strategy
+- ✅ **BREAKING CHANGE**: Old API `New(time.Duration, runner)` replaced with `New(cronExpr, runner)`
+- ✅ Simplified struct - removed `scheduleMode` enum and `period` field
 - ✅ Added comprehensive documentation in code
 
 ### Testing
 - ✅ Wrote comprehensive test suite in `scheduler/scheduler_test.go`:
-  - `TestNewWithCron_ValidExpression` - validates 12 different cron patterns
-  - `TestNewWithCron_InvalidExpression` - validates error handling
+  - `TestNew_ValidExpression` - validates 12 different cron patterns
+  - `TestNew_InvalidExpression` - validates error handling
   - `TestCronScheduling_ExecutionTiming` - verifies execution timing
   - `TestCronScheduling_ErrorHandling` - ensures errors don't stop scheduler
   - `TestCronScheduling_ContextCancellation` - tests graceful shutdown
-  - `TestCronScheduling_HourlyDescriptor` - validates descriptor syntax
-- ✅ All existing tests preserved (backward compatibility)
+  - `TestScheduling_HourlyDescriptor` - validates descriptor syntax
+- ✅ Updated all existing tests to use new API with `@every` syntax
+- ✅ `TestSuccessRun`, `TestErrorRun`, `TestContextDecline` now use `@every 1s`
 
 ### Documentation
 - ✅ Updated `docs/src/content/docs/packages/scheduler.mdx`:
-  - Added cron syntax overview
+  - Documented unified cron-based API
   - Documented all supported formats (standard, descriptors, @every)
   - Included "Cron Syntax Guide" section with common patterns
-  - Added "Interval vs Cron" comparison table
-  - Included practical examples for each format
+  - Added "Choosing the Right Syntax" table
+  - Removed backward compatibility references
+  - Updated all examples to use new `New(cronExpr, runner)` signature
 
 ### Demo Applications
-- ✅ Created `demo-app/cmd/scheduler-cron/main.go`:
+- ✅ Updated `demo-app/cmd/scheduler/main.go` to use `@every 1s` syntax
+- ✅ Updated `demo-app/cmd/scheduler-cron/main.go` to use new API:
   - Demonstrates multiple cron patterns
   - Shows @every syntax (@every 3s, @every 5s)
   - Shows descriptors (@daily, @hourly)
   - Shows standard cron (0 9 * * MON-FRI)
   - Includes explanatory output
+  - All use `New(cronExpr, runner)` signature
 
 ### Dependencies
 - ✅ Added `github.com/pardnchiu/go-scheduler v1.2.0` to go.mod
@@ -110,20 +114,23 @@ Once network connectivity is restored:
 
 ## 🎯 Expected Outcomes
 
-### API Usage
+### API Usage (Breaking Change)
 
-**Before (interval only)**:
+**Before (interval-based)**:
 ```go
 s := scheduler.New(5*time.Minute, application.RunnerFunc(task))
 ```
 
-**After (with cron support)**:
+**After (cron-based, unified API)**:
 ```go
-// Interval mode (unchanged - backward compatible)
-s := scheduler.New(5*time.Minute, application.RunnerFunc(task))
+// For intervals, use @every syntax
+s, err := scheduler.New("@every 5m", application.RunnerFunc(task))
+if err != nil {
+    log.Fatal(err)
+}
 
-// Cron mode (new)
-s, err := scheduler.NewWithCron("*/5 * * * *", application.RunnerFunc(task))
+// For cron schedules
+s, err := scheduler.New("*/5 * * * *", application.RunnerFunc(task))
 if err != nil {
     log.Fatal(err)
 }
@@ -145,11 +152,12 @@ s, err := scheduler.NewWithCron("invalid", runner)
 
 ## ✨ Features Implemented
 
-- ✅ **Backward Compatible**: Existing code continues to work unchanged
+- ⚠️ **BREAKING CHANGE**: API simplified - single constructor accepts cron expressions
 - ✅ **Validation**: Cron expressions validated at construction time
 - ✅ **Flexible**: Supports standard cron, descriptors, and @every syntax
-- ✅ **Consistent Logging**: Maintains trace ID logging in both modes
-- ✅ **Graceful Shutdown**: Both modes handle context cancellation properly
+- ✅ **Simpler**: Removed dual-mode complexity, cleaner implementation
+- ✅ **Consistent Logging**: Maintains trace ID logging
+- ✅ **Graceful Shutdown**: Handles context cancellation properly
 - ✅ **Error Resilient**: Errors in tasks don't stop the scheduler
 - ✅ **Well Tested**: Comprehensive test coverage for all features
 - ✅ **Well Documented**: Clear docs with examples

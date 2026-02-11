@@ -12,33 +12,13 @@ import (
 	cron "github.com/pardnchiu/go-scheduler"
 )
 
-// scheduleMode represents the type of scheduling strategy.
-type scheduleMode int
-
-const (
-	scheduleModeInterval scheduleMode = iota // Fixed interval-based scheduling
-	scheduleModeCron                         // Cron expression-based scheduling
-)
-
-// Scheduler represents a periodic task runner that executes an action at fixed intervals or via cron expressions.
+// Scheduler represents a periodic task runner that executes an action based on a cron expression.
 type Scheduler struct {
-	period   time.Duration      // The interval between action executions (for interval mode)
-	cronExpr string             // The cron expression (for cron mode)
-	mode     scheduleMode       // The scheduling mode (interval or cron)
+	cronExpr string             // The cron expression
 	runner   application.Runner // The runner to execute periodically
 }
 
-// New creates a new Scheduler instance with the specified period and action.
-// The scheduler executes the runner at fixed intervals.
-func New(period time.Duration, runner application.Runner) *Scheduler {
-	return &Scheduler{
-		period: period,
-		runner: runner,
-		mode:   scheduleModeInterval,
-	}
-}
-
-// NewWithCron creates a new Scheduler instance with a cron expression.
+// New creates a new Scheduler instance with a cron expression.
 // The scheduler executes the runner according to the cron schedule.
 //
 // Supported cron formats:
@@ -52,9 +32,10 @@ func New(period time.Duration, runner application.Runner) *Scheduler {
 //   - "0 9 * * MON-FRI" - 9 AM on weekdays
 //   - "@daily" - Every day at midnight
 //   - "@every 30m" - Every 30 minutes
+//   - "@every 1s" - Every second (for intervals, use @every syntax)
 //
 // Returns an error if the cron expression is invalid.
-func NewWithCron(cronExpr string, runner application.Runner) (*Scheduler, error) {
+func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
 	// Validate the cron expression by attempting to create a scheduler
 	testScheduler, err := cron.New(cron.Config{Location: time.UTC})
 	if err != nil {
@@ -70,48 +51,12 @@ func NewWithCron(cronExpr string, runner application.Runner) (*Scheduler, error)
 	return &Scheduler{
 		cronExpr: cronExpr,
 		runner:   runner,
-		mode:     scheduleModeCron,
 	}, nil
 }
 
-// Run starts the scheduler and executes the runner at the configured interval or cron schedule.
+// Run starts the scheduler and executes the runner according to the cron schedule.
 // The scheduler will continue running until the context is canceled.
 func (s *Scheduler) Run(ctx context.Context) error {
-	switch s.mode {
-	case scheduleModeInterval:
-		return s.runInterval(ctx)
-	case scheduleModeCron:
-		return s.runCron(ctx)
-	default:
-		return fmt.Errorf("unknown schedule mode: %d", s.mode)
-	}
-}
-
-// runInterval executes the scheduler using fixed interval timing.
-func (s *Scheduler) runInterval(ctx context.Context) error {
-	ticker := time.NewTicker(s.period)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			runCtx := context.WithValue(ctx, log.TraceIDKey, uuid.NewString())
-			log.InfoContext(runCtx, "scheduler task started")
-
-			err := s.runner.Run(runCtx)
-			if err != nil {
-				log.ErrorContext(runCtx, "error in scheduler", "error", err)
-			}
-
-			log.InfoContext(runCtx, "scheduler task finished")
-		case <-ctx.Done():
-			return fmt.Errorf("scheduler context canceled: %w", ctx.Err())
-		}
-	}
-}
-
-// runCron executes the scheduler using cron expression timing.
-func (s *Scheduler) runCron(ctx context.Context) error {
 	// Create a new cron scheduler
 	cronScheduler, err := cron.New(cron.Config{Location: time.UTC})
 	if err != nil {

@@ -30,7 +30,7 @@ func main() {
 	defer cancel()
 
 	// Example 1: Using @every syntax - every 5 seconds
-	s1, err := scheduler.NewWithCron("@every 5s", application.RunnerFunc(func(ctx context.Context) error {
+	s1, err := scheduler.New("@every 5s", application.RunnerFunc(func(ctx context.Context) error {
 		log.InfoContext(ctx, "@every syntax: every 5 seconds")
 		return nil
 	}))
@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// Example 2: Using @every syntax - every 3 seconds
-	s2, err := scheduler.NewWithCron("@every 3s", application.RunnerFunc(func(ctx context.Context) error {
+	s2, err := scheduler.New("@every 3s", application.RunnerFunc(func(ctx context.Context) error {
 		log.InfoContext(ctx, "@every syntax: every 3 seconds")
 		return nil
 	}))
@@ -50,21 +50,21 @@ func main() {
 	}
 
 	// Example 3: Daily task (would run at midnight, but won't execute in this demo)
-	s3, err := scheduler.NewWithCron("@daily", application.RunnerFunc(dailyBackup))
+	s3, err := scheduler.New("@daily", application.RunnerFunc(dailyBackup))
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create scheduler 3", "error", err)
 		return
 	}
 
 	// Example 4: Weekday task (would run at 9 AM on weekdays, won't execute in this demo)
-	s4, err := scheduler.NewWithCron("0 9 * * MON-FRI", application.RunnerFunc(weekdayReport))
+	s4, err := scheduler.New("0 9 * * MON-FRI", application.RunnerFunc(weekdayReport))
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create scheduler 4", "error", err)
 		return
 	}
 
 	// Example 5: Hourly task (won't execute in this demo)
-	s5, err := scheduler.NewWithCron("@hourly", application.RunnerFunc(frequentHealthCheck))
+	s5, err := scheduler.New("@hourly", application.RunnerFunc(frequentHealthCheck))
 	if err != nil {
 		log.ErrorContext(ctx, "failed to create scheduler 5", "error", err)
 		return

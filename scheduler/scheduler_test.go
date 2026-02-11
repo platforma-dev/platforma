@@ -15,10 +15,13 @@ func TestSuccessRun(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
-	s := scheduler.New(1*time.Second, application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
 		counter.Add(1)
 		return nil
 	}))
+	if err != nil {
+		t.Fatalf("failed to create scheduler: %v", err)
+	}
 
 	go s.Run(context.TODO())
 
@@ -33,10 +36,13 @@ func TestErrorRun(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
-	s := scheduler.New(1*time.Second, application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
 		counter.Add(1)
 		return errors.New("some error")
 	}))
+	if err != nil {
+		t.Fatalf("failed to create scheduler: %v", err)
+	}
 
 	go s.Run(context.TODO())
 
@@ -51,10 +57,13 @@ func TestContextDecline(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
-	s := scheduler.New(1*time.Second, application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
 		counter.Add(1)
 		return nil
 	}))
+	if err != nil {
+		t.Fatalf("failed to create scheduler: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -63,20 +72,20 @@ func TestContextDecline(t *testing.T) {
 		cancel()
 	}()
 
-	err := s.Run(ctx)
+	runErr := s.Run(ctx)
 
 	if counter.Load() != 3 {
 		t.Errorf("wrong counter value. expected %v, got %v", 3, counter.Load())
 	}
 
-	if err == nil {
+	if runErr == nil {
 		t.Error("expected error, got nil")
 	}
 }
 
 // Cron functionality tests
 
-func TestNewWithCron_ValidExpression(t *testing.T) {
+func TestNew_ValidExpression(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -101,7 +110,7 @@ func TestNewWithCron_ValidExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s, err := scheduler.NewWithCron(tc.expr, application.RunnerFunc(func(ctx context.Context) error {
+			s, err := scheduler.New(tc.expr, application.RunnerFunc(func(ctx context.Context) error {
 				return nil
 			}))
 
@@ -116,7 +125,7 @@ func TestNewWithCron_ValidExpression(t *testing.T) {
 	}
 }
 
-func TestNewWithCron_InvalidExpression(t *testing.T) {
+func TestNew_InvalidExpression(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -135,7 +144,7 @@ func TestNewWithCron_InvalidExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s, err := scheduler.NewWithCron(tc.expr, application.RunnerFunc(func(ctx context.Context) error {
+			s, err := scheduler.New(tc.expr, application.RunnerFunc(func(ctx context.Context) error {
 				return nil
 			}))
 
@@ -246,13 +255,13 @@ func TestCronScheduling_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestCronScheduling_HourlyDescriptor(t *testing.T) {
+func TestScheduling_HourlyDescriptor(t *testing.T) {
 	t.Parallel()
 
 	// This test validates that the @hourly descriptor is accepted
 	// We won't wait an hour, just verify it's created successfully
 	var executed atomic.Bool
-	s, err := scheduler.NewWithCron("@hourly", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@hourly", application.RunnerFunc(func(ctx context.Context) error {
 		executed.Store(true)
 		return nil
 	}))
