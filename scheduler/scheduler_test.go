@@ -163,13 +163,13 @@ func TestCronScheduling_ExecutionTiming(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
-	s, err := scheduler.NewWithCron("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
 		counter.Add(1)
 		return nil
 	}))
 
 	if err != nil {
-		t.Fatalf("failed to create cron scheduler: %v", err)
+		t.Fatalf("failed to create scheduler: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -195,13 +195,13 @@ func TestCronScheduling_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
-	s, err := scheduler.NewWithCron("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
 		counter.Add(1)
 		return errors.New("task error")
 	}))
 
 	if err != nil {
-		t.Fatalf("failed to create cron scheduler: %v", err)
+		t.Fatalf("failed to create scheduler: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -226,13 +226,13 @@ func TestCronScheduling_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
-	s, err := scheduler.NewWithCron("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(ctx context.Context) error {
 		counter.Add(1)
 		return nil
 	}))
 
 	if err != nil {
-		t.Fatalf("failed to create cron scheduler: %v", err)
+		t.Fatalf("failed to create scheduler: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
