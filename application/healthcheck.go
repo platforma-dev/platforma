@@ -30,6 +30,6 @@ func (h *HealthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewEncoder(w).Encode(health)
 	if err != nil {
-		log.ErrorContext(r.Context(), "failed to decode response to json", "error", err)
+		log.ErrorContext(r.Context(), "failed to encode response to json", "error", err)
 	}
 }
