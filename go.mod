@@ -1,11 +1,12 @@
 module github.com/platforma-dev/platforma
 
-go 1.25.0
+go 1.23
 
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.11.1
+	github.com/pardnchiu/go-scheduler v1.2.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
 	golang.org/x/crypto v0.47.0
 )

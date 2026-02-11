@@ -27,7 +27,12 @@ Request: Add support for cron syntax in the scheduler package to enable more fle
 
 1. Keep existing `New(period, runner)` constructor unchanged
 2. Add new `NewWithCron(cronExpr, runner)` constructor for cron-based scheduling
-3. Use the `github.com/robfig/cron/v3` library (industry standard for Go)
+3. Use the `github.com/pardnchiu/go-scheduler` library - modern, feature-rich cron library with:
+   - Standard cron syntax (5-field format)
+   - Custom descriptors (@hourly, @daily, @weekly, @monthly, @yearly)
+   - Interval syntax (@every 5m, @every 2h)
+   - Task dependencies, timeouts, and panic recovery
+   - Minimal dependencies (stdlib only)
 4. Modify internal structure to support both scheduling modes
 5. Update `Run()` method to handle both interval and cron schedules
 
@@ -35,7 +40,7 @@ Request: Add support for cron syntax in the scheduler package to enable more fle
 
 #### 1. Add Cron Library Dependency
 ```bash
-go get github.com/robfig/cron/v3
+go get github.com/pardnchiu/go-scheduler
 ```
 
 #### 2. Update Scheduler Structure
@@ -73,7 +78,7 @@ func NewWithCron(cronExpr string, runner application.Runner) (*Scheduler, error)
 #### 4. Update Run Method
 - Check `mode` field to determine which scheduling approach to use
 - For interval mode: use existing `time.Ticker` logic
-- For cron mode: use `github.com/robfig/cron/v3` scheduler
+- For cron mode: use `github.com/pardnchiu/go-scheduler` internally
 - Maintain same logging behavior with trace IDs
 - Ensure proper error handling and context cancellation
 
@@ -101,7 +106,7 @@ Create new demo: `demo-app/cmd/scheduler-cron/main.go`
 ## Implementation Steps
 
 ### Phase 1: Core Implementation
-1. ✅ Add `github.com/robfig/cron/v3` to go.mod
+1. ✅ Add `github.com/pardnchiu/go-scheduler` to go.mod
 2. ✅ Update Scheduler struct with mode field and cronExpr
 3. ✅ Implement `NewWithCron()` constructor with validation
 4. ✅ Update `Run()` method to handle both modes
@@ -200,10 +205,12 @@ if err != nil {
 | Increased complexity | Clear separation of concerns with mode field |
 
 ## Dependencies
-- `github.com/robfig/cron/v3` - Standard cron library for Go
-  - Well-maintained (1M+ downloads/week on pkg.go.dev)
-  - Simple API, good documentation
-  - Supports standard cron syntax plus extensions
+- `github.com/pardnchiu/go-scheduler` - Modern cron library for Go
+  - Lightweight with minimal dependencies (stdlib only)
+  - Supports standard cron syntax, custom descriptors (@daily, @hourly)
+  - Includes @every interval syntax (@every 5m, @every 2h)
+  - Built-in task dependencies, timeouts, and panic recovery
+  - MIT licensed, active development
 
 ## Acceptance Criteria
 - [ ] Users can create schedulers with cron syntax

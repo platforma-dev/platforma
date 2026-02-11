@@ -3,12 +3,18 @@ title: scheduler
 ---
 import { LinkButton, Steps } from '@astrojs/starlight/components';
 
-The `scheduler` package provides periodic task execution at fixed intervals.
+The `scheduler` package provides periodic task execution using either fixed intervals or cron expressions.
 
 Core Components:
 
-- `Scheduler`: Executes a runner at configured intervals. Implements `Runner` interface so it can be used as an `application` service.
+- `Scheduler`: Executes a runner at configured intervals or cron schedules. Implements `Runner` interface so it can be used as an `application` service.
 - `New(period, runner)`: Creates a new scheduler with the specified interval and runner.
+- `NewWithCron(cronExpr, runner)`: Creates a new scheduler with a cron expression.
+
+Supported cron formats:
+- **Standard 5-field cron**: `"minute hour day month weekday"` (e.g., `"0 9 * * MON-FRI"`)
+- **Custom descriptors**: `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`
+- **Interval syntax**: `@every 30s`, `@every 5m`, `@every 2h`
 
 [Full package docs at pkg.go.dev](https://pkg.go.dev/github.com/platforma-dev/platforma/scheduler)
 
@@ -85,9 +91,128 @@ app.Run(ctx)
 
 The scheduler starts when the application runs and stops when the application shuts down.
 
-## Complete example
+## Cron Syntax Guide
+
+The scheduler now supports cron expressions for more flexible scheduling patterns.
+
+### Creating a Cron Scheduler
+
+<Steps>
+
+1. Create a cron scheduler
+
+    ```go
+    s, err := scheduler.NewWithCron("0 9 * * MON-FRI", application.RunnerFunc(scheduledTask))
+    if err != nil {
+        log.Fatal(err)
+    }
+    ```
+
+    The first argument is a cron expression. Returns an error if the expression is invalid.
+
+2. Run the scheduler
+
+    ```go
+    err := s.Run(ctx)
+    ```
+
+    Works the same as interval-based schedulers - blocks until context is cancelled.
+
+</Steps>
+
+### Common Cron Patterns
+
+**Standard Cron Syntax** (`minute hour day month weekday`):
+
+```go
+// Every 5 minutes
+scheduler.NewWithCron("*/5 * * * *", runner)
+
+// Every hour at minute 0
+scheduler.NewWithCron("0 * * * *", runner)
+
+// Every 2 hours at minute 0
+scheduler.NewWithCron("0 */2 * * *", runner)
+
+// Every day at 9:30 AM
+scheduler.NewWithCron("30 9 * * *", runner)
+
+// Weekdays at 9 AM
+scheduler.NewWithCron("0 9 * * MON-FRI", runner)
+
+// First day of every month at midnight
+scheduler.NewWithCron("0 0 1 * *", runner)
+```
+
+**Custom Descriptors**:
+
+```go
+// Every hour (at minute 0)
+scheduler.NewWithCron("@hourly", runner)
+
+// Every day at midnight
+scheduler.NewWithCron("@daily", runner)
+
+// Every Sunday at midnight
+scheduler.NewWithCron("@weekly", runner)
+
+// First day of month at midnight
+scheduler.NewWithCron("@monthly", runner)
+
+// January 1st at midnight
+scheduler.NewWithCron("@yearly", runner)
+```
+
+**Interval Syntax**:
+
+```go
+// Every 30 seconds
+scheduler.NewWithCron("@every 30s", runner)
+
+// Every 5 minutes
+scheduler.NewWithCron("@every 5m", runner)
+
+// Every 2 hours
+scheduler.NewWithCron("@every 2h", runner)
+
+// Every 12 hours
+scheduler.NewWithCron("@every 12h", runner)
+```
+
+### Interval vs Cron: When to Use Each
+
+| Use Case | Recommendation | Example |
+|----------|---------------|---------|
+| Simple fixed interval | `New()` | Every 5 minutes |
+| Specific time of day | `NewWithCron()` | Daily at 3 AM |
+| Weekday-specific | `NewWithCron()` | Monday-Friday at 9 AM |
+| Complex patterns | `NewWithCron()` | Every 15 min during business hours |
+| Human-readable intervals | `NewWithCron()` with `@every` | `@every 30m` |
+
+**Example: Interval vs Cron**
+
+```go
+// Interval-based: runs every 5 minutes starting immediately
+interval := scheduler.New(5*time.Minute, runner)
+
+// Cron-based: runs at :00, :05, :10, :15, etc. (aligned to clock)
+cron, _ := scheduler.NewWithCron("*/5 * * * *", runner)
+
+// Cron with @every: similar to interval but uses cron syntax
+every, _ := scheduler.NewWithCron("@every 5m", runner)
+```
+
+## Complete examples
+
+### Interval-based Scheduler
 
 import { Code } from '@astrojs/starlight/components';
 import importedCode from '../../../../../demo-app/cmd/scheduler/main.go?raw';
 
 <Code code={importedCode} lang="go" title="scheduler.go" />
+
+### Cron-based Scheduler
+
+import importedCronCode from '../../../../../demo-app/cmd/scheduler-cron/main.go?raw';
+
+<Code code={importedCronCode} lang="go" title="scheduler-cron.go" />
