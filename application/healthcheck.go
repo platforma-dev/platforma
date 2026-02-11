@@ -9,13 +9,15 @@ import (
 )
 
 type healther interface {
-	Health(context.Context) *ApplicationHealth
+	Health(context.Context) *Health
 }
 
+// HealthCheckHandler serves application health information as JSON.
 type HealthCheckHandler struct {
 	app healther
 }
 
+// NewHealthCheckHandler creates a HealthCheckHandler for the given application.
 func NewHealthCheckHandler(app healther) *HealthCheckHandler {
 	return &HealthCheckHandler{app: app}
 }

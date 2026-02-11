@@ -1,3 +1,4 @@
+// Package scheduler provides cron-based periodic task execution.
 package scheduler
 
 import (

@@ -15,7 +15,7 @@ func TestSuccessRun(t *testing.T) {
 	t.Parallel()
 
 	// Test that scheduler can be created and started successfully
-	s, err := scheduler.New("@hourly", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@hourly", application.RunnerFunc(func(_ context.Context) error {
 		return nil
 	}))
 	if err != nil {
@@ -36,7 +36,7 @@ func TestErrorRun(t *testing.T) {
 	t.Parallel()
 
 	// Test that scheduler handles runner errors without crashing
-	s, err := scheduler.New("@hourly", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@hourly", application.RunnerFunc(func(_ context.Context) error {
 		return errors.New("some error")
 	}))
 	if err != nil {
@@ -57,7 +57,7 @@ func TestContextDecline(t *testing.T) {
 	t.Parallel()
 
 	// Test that context cancellation stops the scheduler
-	s, err := scheduler.New("@hourly", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@hourly", application.RunnerFunc(func(_ context.Context) error {
 		return nil
 	}))
 	if err != nil {
@@ -105,7 +105,7 @@ func TestNew_ValidExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s, err := scheduler.New(tc.expr, application.RunnerFunc(func(ctx context.Context) error {
+			s, err := scheduler.New(tc.expr, application.RunnerFunc(func(_ context.Context) error {
 				return nil
 			}))
 
@@ -139,7 +139,7 @@ func TestNew_InvalidExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s, err := scheduler.New(tc.expr, application.RunnerFunc(func(ctx context.Context) error {
+			s, err := scheduler.New(tc.expr, application.RunnerFunc(func(_ context.Context) error {
 				return nil
 			}))
 
@@ -159,7 +159,7 @@ func TestCronScheduling_ExecutionTiming(t *testing.T) {
 
 	// Test that scheduler respects cron timing with @every syntax
 	var counter atomic.Int32
-	s, err := scheduler.New("@every 30s", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 30s", application.RunnerFunc(func(_ context.Context) error {
 		counter.Add(1)
 		return nil
 	}))
@@ -185,7 +185,7 @@ func TestCronScheduling_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	// Test that scheduler can be created with error-returning runner
-	s, err := scheduler.New("@daily", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@daily", application.RunnerFunc(func(_ context.Context) error {
 		return errors.New("task error")
 	}))
 
@@ -207,7 +207,7 @@ func TestCronScheduling_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	// Test that context cancellation properly stops the scheduler
-	s, err := scheduler.New("@every 30s", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@every 30s", application.RunnerFunc(func(_ context.Context) error {
 		return nil
 	}))
 
@@ -236,7 +236,7 @@ func TestScheduling_HourlyDescriptor(t *testing.T) {
 	// This test validates that the @hourly descriptor is accepted
 	// We won't wait an hour, just verify it's created successfully
 	var executed atomic.Bool
-	s, err := scheduler.New("@hourly", application.RunnerFunc(func(ctx context.Context) error {
+	s, err := scheduler.New("@hourly", application.RunnerFunc(func(_ context.Context) error {
 		executed.Store(true)
 		return nil
 	}))

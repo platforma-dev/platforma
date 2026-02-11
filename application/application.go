@@ -1,3 +1,4 @@
+// Package application provides core application lifecycle management.
 package application
 
 import (
@@ -37,16 +38,16 @@ type Application struct {
 	services       map[string]Runner
 	healthcheckers map[string]Healthchecker
 	databases      map[string]*database.Database
-	health         *ApplicationHealth
+	health         *Health
 }
 
 // New creates and returns a new Application instance.
 func New() *Application {
-	return &Application{services: make(map[string]Runner), healthcheckers: make(map[string]Healthchecker), databases: make(map[string]*database.Database), health: NewApplicationHealth()}
+	return &Application{services: make(map[string]Runner), healthcheckers: make(map[string]Healthchecker), databases: make(map[string]*database.Database), health: NewHealth()}
 }
 
 // Health returns the current health status of the application.
-func (a *Application) Health(ctx context.Context) *ApplicationHealth {
+func (a *Application) Health(ctx context.Context) *Health {
 	for hcName, hc := range a.healthcheckers {
 		a.health.SetServiceData(hcName, hc.Healthcheck(ctx))
 	}
@@ -58,6 +59,7 @@ func (a *Application) OnStart(task Runner, config StartupTaskConfig) {
 	a.startupTasks = append(a.startupTasks, startupTask{task, config})
 }
 
+// OnStartFunc registers a startup task using a RunnerFunc.
 func (a *Application) OnStartFunc(task RunnerFunc, config StartupTaskConfig) {
 	a.startupTasks = append(a.startupTasks, startupTask{task, config})
 }
@@ -84,6 +86,7 @@ func (a *Application) RegisterService(serviceName string, service Runner) {
 	}
 }
 
+// RegisterDomain registers a domain repository in the specified database.
 func (a *Application) RegisterDomain(name, dbName string, domain Domain) {
 	if dbName != "" {
 		repository := domain.GetRepository()

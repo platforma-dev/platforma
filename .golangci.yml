@@ -68,7 +68,7 @@ linters:
       - demo-app
 
     rules:
-      - path: "(scheduler|internal|session|auth|application|doc)/*"
+      - path: "(session|auth)/*"
         linters:
           - revive
 
