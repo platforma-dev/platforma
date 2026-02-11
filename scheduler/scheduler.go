@@ -36,6 +36,11 @@ type Scheduler struct {
 //
 // Returns an error if the cron expression is invalid.
 func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
+	// Check for empty expression first to avoid library panic
+	if cronExpr == "" {
+		return nil, fmt.Errorf("invalid cron expression %q: expression cannot be empty", cronExpr)
+	}
+
 	// Validate the cron expression by attempting to create a scheduler
 	testScheduler, err := cron.New(cron.Config{Location: time.UTC})
 	if err != nil {
