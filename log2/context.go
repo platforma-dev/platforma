@@ -23,5 +23,9 @@ func EventFromContext(ctx context.Context) (*Event, bool) {
 
 // WithEvent stores an event in context.
 func WithEvent(ctx context.Context, ev *Event) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	return context.WithValue(ctx, LogEventContextKey, ev)
 }
