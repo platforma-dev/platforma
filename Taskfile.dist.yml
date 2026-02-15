@@ -24,4 +24,4 @@ tasks:
   docs:
     dir: docs
     cmds:
-      - npm run dev
+      - bun run dev
