@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"time"
 )
 
 // Logger writes sampled wide events.
@@ -77,7 +78,7 @@ func (l *Logger) Start(ctx context.Context, eventName string, attrs ...any) *Eve
 	return &Event{
 		logger:    l,
 		eventName: eventName,
-		startedAt: nowUTC(),
+		startedAt: time.Now().UTC(),
 		attrs:     baseAttrs,
 		steps:     make([]stepRecord, 0),
 		errors:    make([]errorRecord, 0),
@@ -93,7 +94,7 @@ func (l *Logger) emit(ctx context.Context, event eventPayload) error {
 		return nil
 	}
 
-	rec := slog.NewRecord(nowUTC(), event.level, event.eventName, 0)
+	rec := slog.NewRecord(time.Now().UTC(), event.level, event.eventName, 0)
 	rec.AddAttrs(
 		slog.String("event", event.eventName),
 		slog.Int64("durationMs", event.durationMs),

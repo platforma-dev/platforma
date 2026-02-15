@@ -95,7 +95,7 @@ func (e *Event) Step(level slog.Level, msg string, attrs ...any) {
 	}
 
 	e.steps = append(e.steps, stepRecord{
-		ts:    nowUTC(),
+		ts:    time.Now().UTC(),
 		level: level.String(),
 		msg:   msg,
 		attrs: normalizeAttrs(attrs...),
@@ -117,7 +117,7 @@ func (e *Event) Error(err error, attrs ...any) {
 
 	e.hasError = true
 	e.errors = append(e.errors, errorRecord{
-		ts:    nowUTC(),
+		ts:    time.Now().UTC(),
 		err:   err.Error(),
 		attrs: normalizeAttrs(attrs...),
 	})
@@ -137,9 +137,17 @@ func (e *Event) Finish(attrs ...any) error {
 
 	mergeAttrs(e.attrs, normalizeAttrs(attrs...))
 
-	duration := nowUTC().Sub(e.startedAt)
-	status := inferStatus(e.attrs)
-	level := inferLevel(status, e.hasError)
+	status := 0
+	statusFromAttrs, ok := e.attrs["request.status"]
+	if ok {
+		status, ok = statusFromAttrs.(int)
+		if !ok {
+			status = 0
+		}
+	}
+
+	duration := time.Now().UTC().Sub(e.startedAt)
+	level := inferLevel(e.hasError)
 	attrsCopy := copyAttrs(e.attrs)
 	stepsCopy := copySteps(e.steps)
 	errorsCopy := copyErrors(e.errors)
@@ -173,10 +181,6 @@ func (e *Event) Finish(attrs ...any) error {
 		errors:         errorsCopy,
 		stepsDropped:   stepsDropped,
 	})
-}
-
-func nowUTC() time.Time {
-	return time.Now().UTC()
 }
 
 func collectContextAttrs(ctx context.Context, extraKeys map[string]any) map[string]any {
@@ -278,40 +282,12 @@ func copyErrors(src []errorRecord) []map[string]any {
 	return errs
 }
 
-func inferLevel(status int, hasError bool) slog.Level {
-	if hasError || status >= defaultKeepStatus {
+func inferLevel(hasError bool) slog.Level {
+	if hasError {
 		return slog.LevelError
 	}
 
-	if status >= 400 {
-		return slog.LevelWarn
-	}
-
 	return slog.LevelInfo
-}
-
-func inferStatus(attrs map[string]any) int {
-	if status, ok := toInt(attrs["status"]); ok {
-		return status
-	}
-
-	if status, ok := toInt(attrs["statusCode"]); ok {
-		return status
-	}
-
-	if status, ok := toInt(attrs["response.status"]); ok {
-		return status
-	}
-
-	if responseAny, ok := attrs["response"]; ok {
-		if response, okMap := responseAny.(map[string]any); okMap {
-			if status, okStatus := toInt(response["status"]); okStatus {
-				return status
-			}
-		}
-	}
-
-	return 0
 }
 
 func toInt(value any) (int, bool) {

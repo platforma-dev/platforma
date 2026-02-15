@@ -5,7 +5,7 @@ import "context"
 type contextKey string
 
 // LogEventContextKey is used to store Event in context.
-var LogEventContextKey any = contextKey("platformaLog2Event") //nolint:gochecknoglobals
+const LogEventContextKey contextKey = "platformaLogEvent"
 
 // EventFromContext gets an event from context.
 func EventFromContext(ctx context.Context) (*Event, bool) {
