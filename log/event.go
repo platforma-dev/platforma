@@ -103,6 +103,14 @@ func (e *Event) Duration() time.Duration {
 	return e.duration
 }
 
+// Level returns the event level.
+func (e *Event) Level() slog.Level {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.level
+}
+
 // Name returns the event name.
 func (e *Event) Name() string {
 	e.mu.Lock()

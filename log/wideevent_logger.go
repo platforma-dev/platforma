@@ -42,6 +42,6 @@ func (l *WideEventLogger) WriteEvent(ctx context.Context, e *Event) {
 	e.Finish()
 
 	if l.sampler.ShouldSample(ctx, e) {
-		l.logger.LogAttrs(ctx, e.level, "", e.ToAttrs()...)
+		l.logger.LogAttrs(ctx, e.Level(), "", e.ToAttrs()...)
 	}
 }
