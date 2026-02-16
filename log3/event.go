@@ -85,14 +85,29 @@ func (e *Event) ToAttrs() []slog.Attr {
 	defer e.mu.Unlock()
 
 	e.duration = time.Since(e.timestamp)
+	steps := make([]map[string]any, 0, len(e.steps))
+	for _, step := range e.steps {
+		steps = append(steps, map[string]any{
+			"timestamp": step.Timestamp,
+			"level":     step.Level.String(),
+			"name":      step.Name,
+		})
+	}
+	eventErrors := make([]map[string]any, 0, len(e.errors))
+	for _, eventError := range e.errors {
+		eventErrors = append(eventErrors, map[string]any{
+			"timestamp": eventError.Timestamp,
+			"error":     eventError.Error,
+		})
+	}
 
 	return []slog.Attr{
 		slog.String("name", e.name),
 		slog.Time("timestamp", e.timestamp),
 		slog.Duration("duration", e.duration),
 		slog.Any("attrs", e.attrs),
-		slog.Any("steps", e.steps),
-		slog.Any("errors", e.errors),
+		slog.Any("steps", steps),
+		slog.Any("errors", eventErrors),
 	}
 }
 

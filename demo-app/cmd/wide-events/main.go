@@ -14,7 +14,7 @@ func main() {
 	logger := log3.NewWideEventLogger(
 		os.Stdout,
 		log3.NewDefaultSampler(3*time.Second, 200, 0.1),
-		"text",
+		"json",
 		nil,
 	)
 
