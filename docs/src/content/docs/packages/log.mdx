@@ -2,17 +2,21 @@
 title: log
 ---
 import { LinkButton, Steps } from '@astrojs/starlight/components';
+import { Code } from '@astrojs/starlight/components';
+import importedCode from '../../../../../demo-app/cmd/wide-events/main.go?raw';
 
-The `log` package provides structured logging with automatic context value extraction for tracing and debugging.
+The `log` package provides structured application logs, HTTP trace propagation, and request-wide event logging with tail sampling.
 
 Core Components:
 
-- `Logger`: Default logger instance used by package-level logging functions.
-- `New`: Creates a new `slog.Logger` with text or JSON output and custom context keys.
-- `SetDefault`: Replaces the default logger used by package-level functions.
-- `TraceIDKey`, `ServiceNameKey`, `WorkerIDKey`, etc.: Context keys automatically extracted into log output.
-- `Debug`, `Info`, `Warn`, `Error`: Package-level logging functions.
-- `DebugContext`, `InfoContext`, `WarnContext`, `ErrorContext`: Context-aware logging functions that extract trace IDs and other values.
+- `Logger`, `SetDefault`, `Debug`/`Info`/`Warn`/`Error`: Package-level logging API built on top of `slog`.
+- `New`: Builds a text or JSON logger that automatically extracts values like `traceId` and `serviceName` from `context.Context`.
+- `TraceIDMiddleware`: Adds a per-request trace ID to context and response headers.
+- `Event`: Mutable wide-event model with attrs, steps, errors, severity, and duration.
+- `WideEventLogger`: Writes finalized `Event` values through a `Sampler`.
+- `WideEventMiddleware`: Creates request-wide events, stores them in context, and emits them after handlers finish.
+- `Sampler`, `SamplerFunc`, `DefaultSampler`: Tail-sampling rules for keeping errors, slow requests, selected status codes, and random samples.
+- `EventFromContext`: Fetches the current request-wide event from context using `WideEventKey`.
 
 [Full package docs at pkg.go.dev](https://pkg.go.dev/github.com/platforma-dev/platforma/log)
 
@@ -20,168 +24,93 @@ Core Components:
 
 <Steps>
 
-1. Use package-level logging functions
+1. Configure default structured logging
 
     ```go
-    log.Info("server started", "port", 8080)
-    log.Error("failed to connect", "error", err)
+    logger := log.New(os.Stdout, "json", slog.LevelInfo, nil)
+    log.SetDefault(logger)
     ```
 
-    These use the default logger which outputs text format at Info level.
+    This switches package-level logging to JSON and keeps context extraction enabled.
 
-    Expected output:
-
-    ```
-    time=2025-01-01T12:00:00.000+00:00 level=INFO msg="server started" port=8080
-    ```
-
-2. Use context-aware logging
+2. Add trace IDs to each request
 
     ```go
-    ctx := context.WithValue(ctx, log.TraceIDKey, "abc-123")
-    log.InfoContext(ctx, "processing request", "path", "/users")
+    server := httpserver.New("8080", 3*time.Second)
+    server.Use(log.NewTraceIDMiddleware(nil, ""))
     ```
 
-    Context values from known keys are automatically added to log output.
+    With default arguments, the middleware stores IDs under `log.TraceIDKey` and writes `Platforma-Trace-Id` response headers.
 
-    Expected output:
-
-    ```
-    time=2025-01-01T12:00:00.000+00:00 level=INFO msg="processing request" path=/users traceId=abc-123
-    ```
-
-3. Create a custom logger
+3. Configure wide-event logging with sampling
 
     ```go
-    logger := log.New(os.Stdout, "json", slog.LevelDebug, nil)
-    logger.Info("message", "key", "value")
+    wideLogger := log.NewWideEventLogger(
+        os.Stdout,
+        log.NewDefaultSampler(2*time.Second, 500, 0.05),
+        "json",
+        nil,
+    )
+    server.Use(log.NewWideEventMiddleware(wideLogger, "", nil))
     ```
 
-    The second argument is the format: `"text"` or `"json"`. The third is the minimum log level.
+    This keeps all error events, slow requests (>=2s), `5xx` responses, and 5% of the remaining traffic.
 
-    Expected JSON output:
+4. Enrich events and logs inside handlers
+
+    ```go
+    server.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+        log.InfoContext(r.Context(), "users request started")
+
+        if ev := log.EventFromContext(r.Context()); ev != nil {
+            ev.AddStep(slog.LevelInfo, "query users table")
+            ev.AddAttrs(map[string]any{"users.limit": 50})
+        }
+
+        w.WriteHeader(http.StatusOK)
+    })
+    ```
+
+    `InfoContext` includes request metadata (for example `traceId`), and `EventFromContext` lets handlers attach detailed wide-event data.
+
+5. Verify runtime output
 
     ```json
-    {"time":"2025-01-01T12:00:00.000+00:00","level":"INFO","msg":"message","key":"value"}
+    {"level":"INFO","msg":"users request started","traceId":"14b3..."}
+    {"level":"INFO","name":"http.request","duration":"12ms","attrs":{"request.status":200}}
     ```
 
-4. Set a custom default logger
-
-    ```go
-    logger := log.New(os.Stdout, "json", slog.LevelDebug, nil)
-    log.SetDefault(logger)
-
-    log.Info("now using JSON format")
-    ```
-
-    After calling `SetDefault`, all package-level functions use the new logger.
-
-5. Add custom context keys
-
-    ```go
-    type myKey string
-    const RequestIDKey myKey = "requestId"
-
-    customKeys := map[string]any{
-        "requestId": RequestIDKey,
-    }
-    logger := log.New(os.Stdout, "text", slog.LevelInfo, customKeys)
-    log.SetDefault(logger)
-
-    ctx := context.WithValue(ctx, RequestIDKey, "req-456")
-    log.InfoContext(ctx, "custom key extracted")
-    ```
-
-    Expected output:
-
-    ```
-    time=2025-01-01T12:00:00.000+00:00 level=INFO msg="custom key extracted" requestId=req-456
-    ```
+    The first line is an immediate log entry. The second line is the finalized request-wide event emitted after the response is completed.
 
 </Steps>
 
-## Built-in context keys
-
-The logger automatically extracts these context keys when using `*Context` functions:
-
-| Key | Description |
-|-----|-------------|
-| `TraceIDKey` | Request trace ID for distributed tracing |
-| `ServiceNameKey` | Service identifier |
-| `DomainNameKey` | Domain name for domain-based architectures |
-| `StartupTaskKey` | Startup task name during application initialization |
-| `UserIDKey` | Authenticated user ID |
-| `WorkerIDKey` | Queue processor worker ID |
-
 ## Using with Application
 
-The `application` package and other Platforma components automatically set context keys like `ServiceNameKey` and `StartupTaskKey`. Use context-aware logging to include this information:
+Integrate logging by registering an HTTP service and attaching `log` middlewares before `app.Run`:
 
 ```go
 app := application.New()
 
-app.OnStart(application.StartupTask{
-    Name: "init-cache",
-    Task: func(ctx context.Context, config any) error {
-        log.InfoContext(ctx, "initializing cache")
-        // startupTask=init-cache automatically added to output
-        return nil
-    },
-}, nil)
-
-app.Run(ctx)
-```
-
-With `httpserver.TraceIDMiddleware`, the trace ID is automatically available in request handlers:
-
-```go
 server := httpserver.New("8080", 3*time.Second)
-server.Use(httpserver.NewTraceIDMiddleware(nil, ""))
+server.Use(log.NewTraceIDMiddleware(nil, ""))
 
-server.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
-    log.InfoContext(r.Context(), "handling request")
-    // traceId=<uuid> automatically added to output
+wideLogger := log.NewWideEventLogger(
+    os.Stdout,
+    log.NewDefaultSampler(2*time.Second, 500, 0.05),
+    "json",
+    nil,
+)
+server.Use(log.NewWideEventMiddleware(wideLogger, "", nil))
+
+server.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+    log.InfoContext(r.Context(), "health check")
+    w.WriteHeader(http.StatusOK)
 })
+
+app.RegisterService("api", server)
+app.Run(ctx)
 ```
 
 ## Complete example
 
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"net/http"
-	"os"
-	"time"
-
-	"github.com/platforma-dev/platforma/application"
-	"github.com/platforma-dev/platforma/httpserver"
-	"github.com/platforma-dev/platforma/log"
-)
-
-func main() {
-	ctx := context.Background()
-
-	// Configure JSON logging at Debug level
-	logger := log.New(os.Stdout, "json", slog.LevelDebug, nil)
-	log.SetDefault(logger)
-
-	app := application.New()
-
-	server := httpserver.New("8080", 3*time.Second)
-	server.Use(httpserver.NewTraceIDMiddleware(nil, ""))
-
-	server.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		log.InfoContext(r.Context(), "ping received")
-		w.Write([]byte("pong"))
-	})
-
-	app.RegisterService("api", server)
-
-	if err := app.Run(ctx); err != nil {
-		log.ErrorContext(ctx, "app finished with error", "error", err)
-	}
-}
-```
+<Code code={importedCode} lang="go" title="wide-events.go" />
