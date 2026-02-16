@@ -72,6 +72,11 @@ linters:
         linters:
           - revive
 
+      - path: log/.*\.go
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
+        linters:
+          - revive
+
       - path: _test\.go
         linters:
           - dupl

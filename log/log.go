@@ -1,5 +1,5 @@
 // Package log provides structured logging functionality with context support.
-package log //nolint:revive
+package log
 
 import (
 	"context"
