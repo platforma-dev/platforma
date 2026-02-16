@@ -17,7 +17,7 @@ func NewWideEventLogger(w io.Writer, s Sampler, loggerType string, contextKeys m
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
-			if a.Key == slog.TimeKey {
+			if a.Key == slog.TimeKey || a.Key == slog.MessageKey {
 				return slog.Attr{}
 			}
 			return a
