@@ -171,14 +171,6 @@ type stepRecord struct {
 	Name      string     `json:"name"`
 }
 
-func (r stepRecord) LogValue() slog.Value {
-	return slog.GroupValue(
-		slog.Time("timestamp", r.Timestamp),
-		slog.String("name", r.Name),
-		slog.String("level", r.Level.String()),
-	)
-}
-
 type errorRecord struct {
 	Timestamp time.Time `json:"timestamp"`
 	Error     string    `json:"error"`
