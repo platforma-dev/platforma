@@ -1,26 +1,24 @@
-package httpserver
+package log
 
 import (
 	"context"
 	"net/http"
 
-	"github.com/platforma-dev/platforma/log"
-
 	"github.com/google/uuid"
 )
 
-// TraceIDMiddleware is a middleware that adds a trace ID to the request context and response headers.
+// TraceIDMiddleware adds a trace ID to request context and response headers.
 type TraceIDMiddleware struct {
 	contextKey any
 	header     string
 }
 
 // NewTraceIDMiddleware returns a new TraceID middleware.
-// If key is nil, log.TraceIdKey is used.
+// If key is nil, TraceIDKey is used.
 // If header is empty, "Platforma-Trace-Id" is used.
 func NewTraceIDMiddleware(contextKey any, header string) *TraceIDMiddleware {
 	if contextKey == nil {
-		contextKey = log.TraceIDKey
+		contextKey = TraceIDKey
 	}
 
 	if header == "" {
@@ -30,7 +28,7 @@ func NewTraceIDMiddleware(contextKey any, header string) *TraceIDMiddleware {
 	return &TraceIDMiddleware{contextKey: contextKey, header: header}
 }
 
-// Wrap implements the Middleware interface by adding trace ID to requests.
+// Wrap adds trace ID to requests.
 func (m *TraceIDMiddleware) Wrap(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		traceID := uuid.NewString()
