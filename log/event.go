@@ -68,6 +68,10 @@ func (e *Event) AddStep(level slog.Level, name string) {
 
 // AddError appends an error and escalates event level to error.
 func (e *Event) AddError(err error) {
+	if err == nil {
+		return
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
