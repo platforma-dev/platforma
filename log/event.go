@@ -87,6 +87,32 @@ func (e *Event) Finish() {
 	e.duration = time.Since(e.timestamp)
 }
 
+// HasErrors returns true if the event has errors.
+func (e *Event) HasErrors() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return len(e.errors) > 0
+}
+
+// Duration returns the event duration.
+func (e *Event) Duration() time.Duration {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.duration
+}
+
+// Attr returns an event attribute by key.
+func (e *Event) Attr(key string) (any, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	value, ok := e.attrs[key]
+
+	return value, ok
+}
+
 // ToAttrs converts event to slog attributes.
 func (e *Event) ToAttrs() []slog.Attr {
 	e.mu.Lock()

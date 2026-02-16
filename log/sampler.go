@@ -37,16 +37,16 @@ func NewDefaultSampler(slowThreshold time.Duration, keepHTTPStatusAtLeast int, r
 
 // ShouldSample decides if event should be logged.
 func (s *DefaultSampler) ShouldSample(_ context.Context, e *Event) bool {
-	if len(e.errors) > 0 {
+	if e.HasErrors() {
 		return true
 	}
 
-	if e.duration >= s.slowThreshold {
+	if e.Duration() >= s.slowThreshold {
 		return true
 	}
 
 	httpStatus := 0
-	if statusFromMap, exists := e.attrs["request.status"]; exists {
+	if statusFromMap, exists := e.Attr("request.status"); exists {
 		if status, ok := statusFromMap.(int); ok {
 			httpStatus = status
 		}
