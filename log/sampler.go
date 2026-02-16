@@ -45,15 +45,17 @@ func (s *DefaultSampler) ShouldSample(_ context.Context, e *Event) bool {
 		return true
 	}
 
-	httpStatus := 0
-	if statusFromMap, exists := e.Attr("request.status"); exists {
-		if status, ok := statusFromMap.(int); ok {
-			httpStatus = status
+	if e.Name() == "http.request" {
+		httpStatus := 0
+		if statusFromMap, exists := e.Attr("request.status"); exists {
+			if status, ok := statusFromMap.(int); ok {
+				httpStatus = status
+			}
 		}
-	}
 
-	if httpStatus >= s.keepHTTPStatusAtLeast {
-		return true
+		if httpStatus >= s.keepHTTPStatusAtLeast {
+			return true
+		}
 	}
 
 	//nolint:gosec // Non-cryptographic sampling is sufficient for log event retention.

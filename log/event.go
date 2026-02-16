@@ -103,6 +103,14 @@ func (e *Event) Duration() time.Duration {
 	return e.duration
 }
 
+// Name returns the event name.
+func (e *Event) Name() string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.name
+}
+
 // Attr returns an event attribute by key.
 func (e *Event) Attr(key string) (any, bool) {
 	e.mu.Lock()
