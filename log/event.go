@@ -138,8 +138,6 @@ func (e *Event) ToAttrs() []slog.Attr {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.duration = time.Since(e.timestamp)
-
 	steps := make([]map[string]any, 0, len(e.steps))
 	for _, step := range e.steps {
 		steps = append(steps, map[string]any{
