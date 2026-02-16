@@ -161,7 +161,7 @@ func (e *Event) ToAttrs() []slog.Attr {
 		slog.String("name", e.name),
 		slog.Time("timestamp", e.timestamp),
 		slog.Duration("duration", e.duration),
-		slog.Any("attrs", e.attrs),
+		slog.Any("attrs", maps.Clone(e.attrs)),
 		slog.Any("steps", steps),
 		slog.Any("errors", eventErrors),
 	}
