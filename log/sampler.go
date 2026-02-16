@@ -22,7 +22,7 @@ func (f SamplerFunc) ShouldSample(ctx context.Context, e *Event) bool {
 // DefaultSampler samples by error, duration, status code, and random keep rate.
 type DefaultSampler struct {
 	slowThreshold         time.Duration
-	keepHttpStatusAtLeast int
+	keepHTTPStatusAtLeast int
 	randomKeepRate        float64
 }
 
@@ -30,13 +30,13 @@ type DefaultSampler struct {
 func NewDefaultSampler(slowThreshold time.Duration, keepHTTPStatusAtLeast int, randomKeepRate float64) *DefaultSampler {
 	return &DefaultSampler{
 		slowThreshold:         slowThreshold,
-		keepHttpStatusAtLeast: keepHTTPStatusAtLeast,
+		keepHTTPStatusAtLeast: keepHTTPStatusAtLeast,
 		randomKeepRate:        randomKeepRate,
 	}
 }
 
 // ShouldSample decides if event should be logged.
-func (s *DefaultSampler) ShouldSample(ctx context.Context, e *Event) bool {
+func (s *DefaultSampler) ShouldSample(_ context.Context, e *Event) bool {
 	if len(e.errors) > 0 {
 		return true
 	}
@@ -46,19 +46,17 @@ func (s *DefaultSampler) ShouldSample(ctx context.Context, e *Event) bool {
 	}
 
 	httpStatus := 0
-	statusFromMap, exists := e.attrs["request.status"]
-	if exists {
-		success := false
-		httpStatus, success = statusFromMap.(int)
-		if !success {
-			httpStatus = 0
+	if statusFromMap, exists := e.attrs["request.status"]; exists {
+		if status, ok := statusFromMap.(int); ok {
+			httpStatus = status
 		}
 	}
 
-	if httpStatus >= s.keepHttpStatusAtLeast {
+	if httpStatus >= s.keepHTTPStatusAtLeast {
 		return true
 	}
 
+	//nolint:gosec // Non-cryptographic sampling is sufficient for log event retention.
 	if rand.Float64() < s.randomKeepRate {
 		return true
 	}

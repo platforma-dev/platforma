@@ -2,11 +2,14 @@ package log
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 )
 
 const defaultWideEventName = "http.request"
+
+var errPanicRecovered = errors.New("panic recovered")
 
 // WideEventMiddleware creates and writes a request-wide event.
 type WideEventMiddleware struct {
@@ -54,7 +57,7 @@ func (m *WideEventMiddleware) Wrap(next http.Handler) http.Handler {
 		defer func() {
 			recovered := recover()
 			if recovered != nil {
-				event.AddError(fmt.Errorf("panic: %v", recovered))
+				event.AddError(fmt.Errorf("%w: %v", errPanicRecovered, recovered))
 				if !recorder.wroteHeader {
 					recorder.statusCode = http.StatusInternalServerError
 				}
@@ -91,5 +94,10 @@ func (w *statusResponseWriter) Write(p []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 
-	return w.ResponseWriter.Write(p)
+	n, err := w.ResponseWriter.Write(p)
+	if err != nil {
+		return n, fmt.Errorf("write response body: %w", err)
+	}
+
+	return n, nil
 }
