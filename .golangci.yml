@@ -64,20 +64,17 @@ linters:
         rules:
           json: camel
 
-    revive:
-      rules:
-        - name: var-naming
-          arguments:
-            - []
-            - []
-            - skip-package-name-collision-with-go-std: true
-
   exclusions:
     paths:
       - demo-app
 
     rules:
       - path: "(scheduler|internal|session|auth|application|doc)/*"
+        linters:
+          - revive
+
+      - path: log/.*\.go
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
         linters:
           - revive
 
