@@ -22,8 +22,12 @@ type DefaultSampler struct {
 	randomKeepRate        float64
 }
 
-func NewDefaultSampler() *DefaultSampler {
-	return &DefaultSampler{}
+func NewDefaultSampler(slowThreshold time.Duration, keepHttpStatusAtLeast int, randomKeepRate float64) *DefaultSampler {
+	return &DefaultSampler{
+		slowThreshold:         slowThreshold,
+		keepHttpStatusAtLeast: keepHttpStatusAtLeast,
+		randomKeepRate:        randomKeepRate,
+	}
 }
 
 func (s *DefaultSampler) ShouldSample(ctx context.Context, e *Event) bool {

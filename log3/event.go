@@ -19,8 +19,9 @@ type Event struct {
 	errors    []errorRecord
 }
 
-func NewEvent() *Event {
+func NewEvent(name string) *Event {
 	return &Event{
+		name:      name,
 		timestamp: time.Now(),
 		level:     slog.LevelDebug,
 		attrs:     map[string]any{},
@@ -31,6 +32,10 @@ func (e *Event) SetLevel(level slog.Level) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	e.setLevelNoLock(level)
+}
+
+func (e *Event) setLevelNoLock(level slog.Level) {
 	if level > e.level {
 		e.level = level
 	}
@@ -47,12 +52,12 @@ func (e *Event) AddStep(level slog.Level, name string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.SetLevel(level)
+	e.setLevelNoLock(level)
 
 	e.steps = append(e.steps, stepRecord{
-		timestamp: time.Now(),
-		level:     level,
-		name:      name,
+		Timestamp: time.Now(),
+		Level:     level,
+		Name:      name,
 	})
 }
 
@@ -60,11 +65,11 @@ func (e *Event) AddError(err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.SetLevel(slog.LevelError)
+	e.setLevelNoLock(slog.LevelError)
 
 	e.errors = append(e.errors, errorRecord{
-		timestamp: time.Now(),
-		err:       err,
+		Timestamp: time.Now(),
+		Error:     err.Error(),
 	})
 }
 
@@ -84,7 +89,6 @@ func (e *Event) ToAttrs() []slog.Attr {
 	return []slog.Attr{
 		slog.String("name", e.name),
 		slog.Time("timestamp", e.timestamp),
-		slog.Int("level", int(e.level)),
 		slog.Duration("duration", e.duration),
 		slog.Any("attrs", e.attrs),
 		slog.Any("steps", e.steps),
@@ -93,12 +97,20 @@ func (e *Event) ToAttrs() []slog.Attr {
 }
 
 type stepRecord struct {
-	timestamp time.Time
-	level     slog.Level
-	name      string
+	Timestamp time.Time  `json:"timestamp"`
+	Level     slog.Level `json:"level"`
+	Name      string     `json:"name"`
+}
+
+func (r stepRecord) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.Time("timestamp", r.Timestamp),
+		slog.String("name", r.Name),
+		slog.String("level", r.Level.String()),
+	)
 }
 
 type errorRecord struct {
-	timestamp time.Time
-	err       error
+	Timestamp time.Time `json:"timestamp"`
+	Error     string    `json:"error"`
 }
