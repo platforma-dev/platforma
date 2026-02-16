@@ -28,7 +28,6 @@ export default defineConfig({
             "packages/database",
             "packages/httpserver",
             "packages/log",
-            "packages/log2",
             "packages/queue",
             "packages/scheduler",
             "packages/auth",
