@@ -1,4 +1,4 @@
-package log3
+package log
 
 import (
 	"log/slog"
@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Event is a mutable wide event.
 type Event struct {
 	mu sync.Mutex
 
@@ -19,6 +20,7 @@ type Event struct {
 	errors    []errorRecord
 }
 
+// NewEvent creates a new wide event.
 func NewEvent(name string) *Event {
 	return &Event{
 		name:      name,
@@ -28,6 +30,7 @@ func NewEvent(name string) *Event {
 	}
 }
 
+// SetLevel sets event level if it is higher than the current one.
 func (e *Event) SetLevel(level slog.Level) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -41,6 +44,7 @@ func (e *Event) setLevelNoLock(level slog.Level) {
 	}
 }
 
+// AddAttrs adds attributes to event data.
 func (e *Event) AddAttrs(attrs map[string]any) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -48,6 +52,7 @@ func (e *Event) AddAttrs(attrs map[string]any) {
 	maps.Copy(e.attrs, attrs)
 }
 
+// AddStep appends an event step and potentially escalates level.
 func (e *Event) AddStep(level slog.Level, name string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -61,6 +66,7 @@ func (e *Event) AddStep(level slog.Level, name string) {
 	})
 }
 
+// AddError appends an error and escalates event level to error.
 func (e *Event) AddError(err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -73,6 +79,7 @@ func (e *Event) AddError(err error) {
 	})
 }
 
+// Finish stores current event duration.
 func (e *Event) Finish() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -80,11 +87,13 @@ func (e *Event) Finish() {
 	e.duration = time.Since(e.timestamp)
 }
 
+// ToAttrs converts event to slog attributes.
 func (e *Event) ToAttrs() []slog.Attr {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	e.duration = time.Since(e.timestamp)
+
 	steps := make([]map[string]any, 0, len(e.steps))
 	for _, step := range e.steps {
 		steps = append(steps, map[string]any{
@@ -93,6 +102,7 @@ func (e *Event) ToAttrs() []slog.Attr {
 			"name":      step.Name,
 		})
 	}
+
 	eventErrors := make([]map[string]any, 0, len(e.errors))
 	for _, eventError := range e.errors {
 		eventErrors = append(eventErrors, map[string]any{

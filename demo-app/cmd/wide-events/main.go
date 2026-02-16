@@ -7,18 +7,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/platforma-dev/platforma/log3"
+	"github.com/platforma-dev/platforma/log"
 )
 
 func main() {
-	logger := log3.NewWideEventLogger(
+	logger := log.NewWideEventLogger(
 		os.Stdout,
-		log3.NewDefaultSampler(3*time.Second, 200, 0.1),
+		log.NewDefaultSampler(3*time.Second, 200, 0.1),
 		"json",
 		nil,
 	)
 
-	ev := log3.NewEvent("test_event")
+	ev := log.NewEvent("test_event")
 
 	ev.AddStep(slog.LevelInfo, "some step")
 	ev.AddError(errors.New("some error"))
