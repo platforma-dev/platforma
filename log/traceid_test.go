@@ -1,27 +1,26 @@
-package httpserver_test
+package log_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/platforma-dev/platforma/httpserver"
-	"github.com/platforma-dev/platforma/log"
+	platformalog "github.com/platforma-dev/platforma/log"
 )
 
-func TestTraceIdMiddleware(t *testing.T) {
+func TestTraceIDMiddleware(t *testing.T) {
 	t.Parallel()
 
 	t.Run("default params", func(t *testing.T) {
 		t.Parallel()
 
-		m := httpserver.NewTraceIDMiddleware(nil, "")
-		wrappedHandler := m.Wrap(&handler{serveHTTP: func(w http.ResponseWriter, r *http.Request) {
-			i, ok := r.Context().Value(log.TraceIDKey).(string)
+		m := platformalog.NewTraceIDMiddleware(nil, "")
+		wrappedHandler := m.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			i, ok := r.Context().Value(platformalog.TraceIDKey).(string)
 			if ok {
 				w.Header().Add("TraceIdFromContext", i)
 			}
-		}})
+		}))
 
 		r := httptest.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
@@ -34,8 +33,7 @@ func TestTraceIdMiddleware(t *testing.T) {
 		}
 
 		if len(resp.Header.Get("TraceIdFromContext")) == 0 {
-			t.Fatalf("trsce id from cotext expected, got: %s", resp.Header)
+			t.Fatalf("trace id from context expected, got: %s", resp.Header)
 		}
-
 	})
 }

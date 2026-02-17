@@ -31,7 +31,7 @@ func main() {
 	app.RegisterDomain("auth", "main", authDomain)
 
 	api := httpserver.New("8080", 3*time.Second)
-	api.Use(httpserver.NewTraceIDMiddleware(nil, ""))
+	api.Use(log.NewTraceIDMiddleware(nil, ""))
 	api.Use(httpserver.NewRecoverMiddleware())
 
 	api.HandleGroup("/auth", authDomain.HandleGroup)
