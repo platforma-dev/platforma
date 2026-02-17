@@ -16,6 +16,11 @@ type WideEventLogger struct {
 
 // NewWideEventLogger creates a wide-event logger.
 func NewWideEventLogger(w io.Writer, s Sampler, loggerType string, contextKeys map[string]any) *WideEventLogger {
+	// If no sampler provided, use a keep-all sampler to prevent nil panics
+	if s == nil {
+		s = SamplerFunc(func(_ context.Context, _ *Event) bool { return true })
+	}
+
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
