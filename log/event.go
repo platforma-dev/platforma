@@ -198,14 +198,14 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 }
 
 type stepRecord struct {
-	Timestamp time.Time  `json:"timestamp"`
-	Level     slog.Level `json:"level"`
-	Name      string     `json:"name"`
+	Timestamp time.Time
+	Level     slog.Level
+	Name      string
 }
 
 type errorRecord struct {
-	Timestamp time.Time `json:"timestamp"`
-	Error     string    `json:"error"`
+	Timestamp time.Time
+	Error     string
 }
 
 func wideEventBuiltinAttrKeys() []string {
