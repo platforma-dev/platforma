@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
-	"sort"
 	"sync"
 	"time"
 )
@@ -180,18 +179,17 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 		slog.Any("errors", eventErrors),
 	)
 
+	reservedSet := make(map[string]struct{}, len(reservedAttrKeys))
+	for _, k := range reservedAttrKeys {
+		reservedSet[k] = struct{}{}
+	}
+
 	customAttrKeys := make([]string, 0, len(e.attrs))
 	for key := range e.attrs {
-		if slices.Contains(reservedAttrKeys, key) {
+		if _, reserved := reservedSet[key]; reserved {
 			continue
 		}
-
 		customAttrKeys = append(customAttrKeys, key)
-	}
-	sort.Strings(customAttrKeys)
-
-	for _, key := range customAttrKeys {
-		attrs = append(attrs, slog.Any(key, e.attrs[key]))
 	}
 
 	return attrs
