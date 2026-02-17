@@ -9,13 +9,15 @@ import (
 )
 
 type healther interface {
-	Health(context.Context) *ApplicationHealth
+	Health(context.Context) *Health
 }
 
+// HealthCheckHandler serves application health information as JSON.
 type HealthCheckHandler struct {
 	app healther
 }
 
+// NewHealthCheckHandler creates a HealthCheckHandler for the given application.
 func NewHealthCheckHandler(app healther) *HealthCheckHandler {
 	return &HealthCheckHandler{app: app}
 }
@@ -28,6 +30,6 @@ func (h *HealthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewEncoder(w).Encode(health)
 	if err != nil {
-		log.ErrorContext(r.Context(), "failed to decode response to json", "error", err)
+		log.ErrorContext(r.Context(), "failed to encode response to json", "error", err)
 	}
 }
