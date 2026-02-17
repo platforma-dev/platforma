@@ -21,6 +21,10 @@ type WideEventMiddleware struct {
 // NewWideEventMiddleware creates middleware that stores a wide event in request context
 // and writes it after request processing.
 func NewWideEventMiddleware(logger *WideEventLogger, eventName string, contextKey any) *WideEventMiddleware {
+	if logger == nil {
+		panic("WideEventMiddleware: logger is nil")
+	}
+
 	if eventName == "" {
 		eventName = defaultWideEventName
 	}
