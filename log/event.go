@@ -3,6 +3,8 @@ package log
 import (
 	"log/slog"
 	"maps"
+	"slices"
+	"sort"
 	"sync"
 	"time"
 )
@@ -135,6 +137,10 @@ func (e *Event) Attr(key string) (any, bool) {
 
 // ToAttrs converts event to slog attributes.
 func (e *Event) ToAttrs() []slog.Attr {
+	return e.toAttrs(nil)
+}
+
+func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -155,14 +161,40 @@ func (e *Event) ToAttrs() []slog.Attr {
 		})
 	}
 
-	return []slog.Attr{
+	builtinAttrKeys := wideEventBuiltinAttrKeys()
+	reservedAttrKeys := make([]string, 0, len(builtinAttrKeys)+len(additionalReservedAttrKeys))
+	reservedAttrKeys = append(reservedAttrKeys, builtinAttrKeys...)
+	for _, key := range additionalReservedAttrKeys {
+		if slices.Contains(reservedAttrKeys, key) {
+			continue
+		}
+		reservedAttrKeys = append(reservedAttrKeys, key)
+	}
+
+	attrs := make([]slog.Attr, 0, len(e.attrs)+len(builtinAttrKeys))
+	attrs = append(attrs,
 		slog.String("name", e.name),
 		slog.Time("timestamp", e.timestamp),
 		slog.Duration("duration", e.duration),
-		slog.Any("attrs", maps.Clone(e.attrs)),
 		slog.Any("steps", steps),
 		slog.Any("errors", eventErrors),
+	)
+
+	customAttrKeys := make([]string, 0, len(e.attrs))
+	for key := range e.attrs {
+		if slices.Contains(reservedAttrKeys, key) {
+			continue
+		}
+
+		customAttrKeys = append(customAttrKeys, key)
 	}
+	sort.Strings(customAttrKeys)
+
+	for _, key := range customAttrKeys {
+		attrs = append(attrs, slog.Any(key, e.attrs[key]))
+	}
+
+	return attrs
 }
 
 type stepRecord struct {
@@ -174,4 +206,14 @@ type stepRecord struct {
 type errorRecord struct {
 	Timestamp time.Time `json:"timestamp"`
 	Error     string    `json:"error"`
+}
+
+func wideEventBuiltinAttrKeys() []string {
+	return []string{
+		"name",
+		"timestamp",
+		"duration",
+		"steps",
+		"errors",
+	}
 }

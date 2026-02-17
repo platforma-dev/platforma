@@ -4,12 +4,14 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"slices"
 )
 
 // WideEventLogger writes wide events with tail sampling.
 type WideEventLogger struct {
-	sampler Sampler
-	logger  *slog.Logger
+	sampler          Sampler
+	logger           *slog.Logger
+	reservedAttrKeys []string
 }
 
 // NewWideEventLogger creates a wide-event logger.
@@ -32,8 +34,9 @@ func NewWideEventLogger(w io.Writer, s Sampler, loggerType string, contextKeys m
 	}
 
 	return &WideEventLogger{
-		sampler: s,
-		logger:  slog.New(&contextHandler{handler, contextKeys}),
+		sampler:          s,
+		logger:           slog.New(&contextHandler{handler, contextKeys}),
+		reservedAttrKeys: wideEventReservedAttrKeys(contextKeys),
 	}
 }
 
@@ -42,6 +45,30 @@ func (l *WideEventLogger) WriteEvent(ctx context.Context, e *Event) {
 	e.Finish()
 
 	if l.sampler.ShouldSample(ctx, e) {
-		l.logger.LogAttrs(ctx, e.Level(), "", e.ToAttrs()...)
+		l.logger.LogAttrs(ctx, e.Level(), "", e.toAttrs(l.reservedAttrKeys)...)
 	}
+}
+
+func wideEventReservedAttrKeys(contextKeys map[string]any) []string {
+	reservedAttrKeys := append([]string{}, wideEventBuiltinAttrKeys()...)
+	reservedAttrKeys = appendUnique(reservedAttrKeys, slog.LevelKey)
+	reservedAttrKeys = appendUnique(reservedAttrKeys, string(DomainNameKey))
+	reservedAttrKeys = appendUnique(reservedAttrKeys, string(TraceIDKey))
+	reservedAttrKeys = appendUnique(reservedAttrKeys, string(ServiceNameKey))
+	reservedAttrKeys = appendUnique(reservedAttrKeys, string(StartupTaskKey))
+	reservedAttrKeys = appendUnique(reservedAttrKeys, string(UserIDKey))
+	reservedAttrKeys = appendUnique(reservedAttrKeys, string(WorkerIDKey))
+	for key := range contextKeys {
+		reservedAttrKeys = appendUnique(reservedAttrKeys, key)
+	}
+
+	return reservedAttrKeys
+}
+
+func appendUnique(keys []string, key string) []string {
+	if slices.Contains(keys, key) {
+		return keys
+	}
+
+	return append(keys, key)
 }
