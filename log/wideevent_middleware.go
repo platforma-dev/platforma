@@ -1,9 +1,11 @@
 package log
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 )
 
@@ -104,4 +106,41 @@ func (w *statusResponseWriter) Write(p []byte) (int, error) {
 	}
 
 	return n, nil
+}
+
+func (w *statusResponseWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (w *statusResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, http.ErrNotSupported
+	}
+
+	conn, rw, err := hijacker.Hijack()
+	if err != nil {
+		return nil, nil, fmt.Errorf("hijack response writer: %w", err)
+	}
+
+	return conn, rw, nil
+}
+
+func (w *statusResponseWriter) Push(target string, opts *http.PushOptions) error {
+	pusher, ok := w.ResponseWriter.(http.Pusher)
+	if !ok {
+		return http.ErrNotSupported
+	}
+
+	if err := pusher.Push(target, opts); err != nil {
+		return fmt.Errorf("push response writer: %w", err)
+	}
+
+	return nil
+}
+
+func (w *statusResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
