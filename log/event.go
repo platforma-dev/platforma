@@ -192,6 +192,10 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 		customAttrKeys = append(customAttrKeys, key)
 	}
 
+	for _, key := range customAttrKeys {
+		attrs = append(attrs, slog.Any(key, e.attrs[key]))
+	}
+
 	return attrs
 }
 
