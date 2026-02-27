@@ -5,14 +5,19 @@ import (
 	"time"
 )
 
+// ServiceStatus represents the lifecycle state of a service.
 type ServiceStatus string
 
 const (
+	// ServiceStatusNotStarted indicates service has not started yet.
 	ServiceStatusNotStarted ServiceStatus = "NOT_STARTED"
-	ServiceStatusStarted    ServiceStatus = "STARTED"
-	ServiceStatusError      ServiceStatus = "ERROR"
+	// ServiceStatusStarted indicates service is currently running.
+	ServiceStatusStarted ServiceStatus = "STARTED"
+	// ServiceStatusError indicates service finished with an error.
+	ServiceStatusError ServiceStatus = "ERROR"
 )
 
+// ServiceHealth contains health information for a single service.
 type ServiceHealth struct {
 	Status    ServiceStatus `json:"status"`
 	StartedAt *time.Time    `json:"startedAt"`
@@ -21,16 +26,19 @@ type ServiceHealth struct {
 	Data      any           `json:"data,omitempty"`
 }
 
-type ApplicationHealth struct {
+// Health contains overall application health and service states.
+type Health struct {
 	StartedAt time.Time                 `json:"startedAt"`
 	Services  map[string]*ServiceHealth `json:"services"`
 }
 
-func NewApplicationHealth() *ApplicationHealth {
-	return &ApplicationHealth{Services: make(map[string]*ServiceHealth)}
+// NewHealth creates an ApplicationHealth with initialized storage.
+func NewHealth() *Health {
+	return &Health{Services: make(map[string]*ServiceHealth)}
 }
 
-func (h *ApplicationHealth) StartService(serviceName string) {
+// StartService marks the given service as started and stores start time.
+func (h *Health) StartService(serviceName string) {
 	if service, ok := h.Services[serviceName]; ok {
 		service.Status = ServiceStatusStarted
 
@@ -41,7 +49,8 @@ func (h *ApplicationHealth) StartService(serviceName string) {
 	}
 }
 
-func (h *ApplicationHealth) FailService(serviceName string, err error) {
+// FailService marks the given service as failed and stores the error.
+func (h *Health) FailService(serviceName string, err error) {
 	if service, ok := h.Services[serviceName]; ok {
 		service.Status = ServiceStatusError
 
@@ -54,18 +63,20 @@ func (h *ApplicationHealth) FailService(serviceName string, err error) {
 	}
 }
 
-func (h *ApplicationHealth) SetServiceData(serviceName string, data any) {
+// SetServiceData stores additional health payload for the given service.
+func (h *Health) SetServiceData(serviceName string, data any) {
 	if service, ok := h.Services[serviceName]; ok {
 		service.Data = data
 		h.Services[serviceName] = service
 	}
 }
 
-func (h *ApplicationHealth) String() string {
+func (h *Health) String() string {
 	b, _ := json.Marshal(h)
 	return string(b)
 }
 
-func (h *ApplicationHealth) StartApplication() {
+// StartApplication marks application start time.
+func (h *Health) StartApplication() {
 	h.StartedAt = time.Now()
 }

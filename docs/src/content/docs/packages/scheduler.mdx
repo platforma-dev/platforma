@@ -3,12 +3,17 @@ title: scheduler
 ---
 import { LinkButton, Steps } from '@astrojs/starlight/components';
 
-The `scheduler` package provides periodic task execution at fixed intervals.
+The `scheduler` package provides periodic task execution using cron expressions.
 
 Core Components:
 
-- `Scheduler`: Executes a runner at configured intervals. Implements `Runner` interface so it can be used as an `application` service.
-- `New(period, runner)`: Creates a new scheduler with the specified interval and runner.
+- `Scheduler`: Executes a runner according to a cron schedule. Implements `Runner` interface so it can be used as an `application` service.
+- `New(cronExpr, runner)`: Creates a new scheduler with a cron expression.
+
+Supported cron formats:
+- **Standard 5-field cron**: `"minute hour day month weekday"` (e.g., `"0 9 * * MON-FRI"`)
+- **Custom descriptors**: `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`
+- **Interval syntax**: `@every 30s`, `@every 5m`, `@every 2h` (use this for simple intervals)
 
 [Full package docs at pkg.go.dev](https://pkg.go.dev/github.com/platforma-dev/platforma/scheduler)
 
@@ -30,10 +35,13 @@ Core Components:
 2. Create a scheduler
 
     ```go
-    s := scheduler.New(time.Second, application.RunnerFunc(scheduledTask))
+    s, err := scheduler.New("@every 1s", application.RunnerFunc(scheduledTask))
+    if err != nil {
+        log.Fatal(err)
+    }
     ```
 
-    First argument is the interval between executions. Second is any `application.Runner` implementation. Use `application.RunnerFunc` to wrap a function.
+    First argument is a cron expression (use `@every` syntax for intervals). Second is any `application.Runner` implementation. Use `application.RunnerFunc` to wrap a function.
 
 3. Run the scheduler
 
@@ -76,7 +84,10 @@ Since `Scheduler` implements the `Runner` interface, it can be registered as a s
 ```go
 app := application.New()
 
-s := scheduler.New(time.Minute, application.RunnerFunc(scheduledTask))
+s, err := scheduler.New("@every 1m", application.RunnerFunc(scheduledTask))
+if err != nil {
+    log.Fatal(err)
+}
 
 app.RegisterService("scheduler", s)
 
@@ -85,9 +96,106 @@ app.Run(ctx)
 
 The scheduler starts when the application runs and stops when the application shuts down.
 
-## Complete example
+## Cron Syntax Guide
+
+The scheduler uses cron expressions for all scheduling needs, from simple intervals to complex patterns.
+
+### Common Cron Patterns
+
+**Standard Cron Syntax** (`minute hour day month weekday`):
+
+```go
+// Every 5 minutes
+scheduler.New("*/5 * * * *", runner)
+
+// Every hour at minute 0
+scheduler.New("0 * * * *", runner)
+
+// Every 2 hours at minute 0
+scheduler.New("0 */2 * * *", runner)
+
+// Every day at 9:30 AM
+scheduler.New("30 9 * * *", runner)
+
+// Weekdays at 9 AM
+scheduler.New("0 9 * * MON-FRI", runner)
+
+// First day of every month at midnight
+scheduler.New("0 0 1 * *", runner)
+```
+
+**Custom Descriptors**:
+
+```go
+// Every hour (at minute 0)
+scheduler.New("@hourly", runner)
+
+// Every day at midnight
+scheduler.New("@daily", runner)
+
+// Every Sunday at midnight
+scheduler.New("@weekly", runner)
+
+// First day of month at midnight
+scheduler.New("@monthly", runner)
+
+// January 1st at midnight
+scheduler.New("@yearly", runner)
+```
+
+**Interval Syntax**:
+
+```go
+// Every 30 seconds
+scheduler.New("@every 30s", runner)
+
+// Every 5 minutes
+scheduler.New("@every 5m", runner)
+
+// Every 2 hours
+scheduler.New("@every 2h", runner)
+
+// Every 12 hours
+scheduler.New("@every 12h", runner)
+```
+
+### Choosing the Right Syntax
+
+| Use Case | Syntax | Example |
+|----------|--------|---------|
+| Simple fixed interval | `@every` | `@every 5m` |
+| Specific time of day | Standard cron | `30 9 * * *` (9:30 AM daily) |
+| Weekday-specific | Standard cron | `0 9 * * MON-FRI` |
+| Complex patterns | Standard cron | `*/15 9-17 * * MON-FRI` |
+| Common schedules | Descriptors | `@daily`, `@hourly` |
+
+**Examples**
+
+```go
+// Simple interval - runs every 5 minutes starting immediately
+s, _ := scheduler.New("@every 5m", runner)
+
+// Clock-aligned - runs at :00, :05, :10, :15, etc.
+s, _ := scheduler.New("*/5 * * * *", runner)
+
+// Daily at specific time
+s, _ := scheduler.New("30 9 * * *", runner) // 9:30 AM daily
+
+// Weekday business hours only
+s, _ := scheduler.New("0 9 * * MON-FRI", runner) // 9 AM weekdays
+```
+
+## Complete examples
+
+### Simple Interval Scheduler
 
 import { Code } from '@astrojs/starlight/components';
 import importedCode from '../../../../../demo-app/cmd/scheduler/main.go?raw';
 
 <Code code={importedCode} lang="go" title="scheduler.go" />
+
+### Advanced Cron Patterns
+
+import importedCronCode from '../../../../../demo-app/cmd/scheduler-cron/main.go?raw';
+
+<Code code={importedCronCode} lang="go" title="scheduler-cron.go" />

@@ -17,7 +17,11 @@ func scheduledTask(ctx context.Context) error {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	s := scheduler.New(time.Second, application.RunnerFunc(scheduledTask))
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(scheduledTask))
+	if err != nil {
+		log.ErrorContext(ctx, "failed to create scheduler", "error", err)
+		return
+	}
 
 	go func() {
 		time.Sleep(3500 * time.Millisecond)
