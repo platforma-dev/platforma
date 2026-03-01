@@ -24,7 +24,7 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Login    string `json:"login"`
-		Password string `json:"password"`
+		Password string `json:"password"` //nolint:gosec // Password in request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
