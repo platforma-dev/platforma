@@ -175,9 +175,15 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 		slog.String("name", e.name),
 		slog.Time("timestamp", e.timestamp),
 		slog.Duration("duration", e.duration),
-		slog.Any("steps", steps),
-		slog.Any("errors", eventErrors),
 	)
+
+	if len(steps) > 0 {
+		attrs = append(attrs, slog.Any("steps", steps))
+	}
+
+	if len(eventErrors) > 0 {
+		attrs = append(attrs, slog.Any("errors", eventErrors))
+	}
 
 	reservedSet := make(map[string]struct{}, len(reservedAttrKeys))
 	for _, k := range reservedAttrKeys {
