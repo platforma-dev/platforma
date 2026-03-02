@@ -2,9 +2,9 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
+	"github.com/platforma-dev/platforma/httpserver"
 	"github.com/platforma-dev/platforma/log"
 )
 
@@ -25,11 +25,7 @@ func NewHealthCheckHandler(app healther) *HealthCheckHandler {
 func (h *HealthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	health := h.app.Health(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	err := json.NewEncoder(w).Encode(health)
-	if err != nil {
-		log.ErrorContext(r.Context(), "failed to encode response to json", "error", err)
+	if err := httpserver.WriteJSON(w, http.StatusOK, health); err != nil {
+		log.ErrorContext(r.Context(), "failed to write health response", "error", err)
 	}
 }
