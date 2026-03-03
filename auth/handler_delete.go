@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/platforma-dev/platforma/httpserver"
 	"github.com/platforma-dev/platforma/log"
 )
 
@@ -41,8 +41,7 @@ func (h *DeleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode("User deleted successfully"); err != nil {
-		log.ErrorContext(ctx, "failed to decode response to json", "error", err)
+	if err := httpserver.WriteJSON(w, http.StatusOK, "User deleted successfully"); err != nil {
+		log.ErrorContext(ctx, "failed to write delete response", "error", err)
 	}
 }

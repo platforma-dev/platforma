@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/platforma-dev/platforma/httpserver"
 	"github.com/platforma-dev/platforma/log"
 )
 
@@ -42,16 +42,13 @@ func (h *GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	var resp = struct {
+	resp := struct {
 		Username string `json:"username"`
 	}{
 		Username: user.Username,
 	}
 
-	err = json.NewEncoder(w).Encode(resp)
-	if err != nil {
-		log.ErrorContext(ctx, "failed to decode response to json", "error", err)
+	if err := httpserver.WriteJSON(w, http.StatusOK, resp); err != nil {
+		log.ErrorContext(ctx, "failed to write user response", "error", err)
 	}
 }
