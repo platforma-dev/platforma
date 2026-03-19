@@ -17,8 +17,6 @@ import (
 
 var errEmptyCronExpression = errors.New("cron expression cannot be empty")
 
-const taskRunEventName = "scheduler.task.run"
-
 const cronParseOptions = cron.Minute |
 	cron.Hour |
 	cron.Dom |
@@ -80,8 +78,17 @@ func (s *Scheduler) Run(ctx context.Context) error {
 
 	// Wrap runner to maintain consistent logging with trace IDs
 	_, err := cronScheduler.AddFunc(s.cronExpr, func() {
-		runCtx, event := s.runTask(ctx)
-		log.WriteEvent(runCtx, event)
+		event := log.NewEvent("scheduler.task.run")
+
+		runCtx := context.WithValue(ctx, log.TraceIDKey, uuid.NewString())
+		runCtx = context.WithValue(runCtx, log.WideEventKey, event)
+
+		event.AddStep(slog.LevelInfo, "scheduler task started")
+
+		err := s.runner.Run(runCtx)
+		event.AddError(err)
+
+		event.AddStep(slog.LevelInfo, "scheduler task finished")
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add cron task: %w", err)
@@ -95,25 +102,4 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	<-stopCtx.Done()
 
 	return fmt.Errorf("scheduler context canceled: %w", ctx.Err())
-}
-
-func (s *Scheduler) runTask(ctx context.Context) (context.Context, *log.Event) {
-	runCtx := context.WithValue(ctx, log.TraceIDKey, uuid.NewString())
-	event := log.NewEvent(taskRunEventName)
-	event.AddAttrs(map[string]any{
-		"scheduler.cronExpr": s.cronExpr,
-	})
-	event.AddStep(slog.LevelInfo, "scheduler task started")
-
-	err := s.runner.Run(runCtx)
-	if err != nil {
-		event.AddStep(slog.LevelError, "scheduler task failed")
-		event.AddError(fmt.Errorf("scheduler task failed: %w", err))
-
-		return runCtx, event
-	}
-
-	event.AddStep(slog.LevelInfo, "scheduler task finished")
-
-	return runCtx, event
 }
