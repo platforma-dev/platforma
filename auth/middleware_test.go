@@ -25,7 +25,7 @@ func TestAuthenticationMiddleware_ValidSession(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session", Value: "valid-session-id"})
 	w := httptest.NewRecorder()
 
@@ -48,7 +48,7 @@ func TestAuthenticationMiddleware_NoSessionCookie(t *testing.T) {
 		t.Fatal("handler should not be called when authentication fails")
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -71,7 +71,7 @@ func TestAuthenticationMiddleware_InvalidSession(t *testing.T) {
 		t.Fatal("handler should not be called when authentication fails")
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session", Value: "invalid-session-id"})
 	w := httptest.NewRecorder()
 
@@ -95,7 +95,7 @@ func TestAuthenticationMiddleware_UserServiceError(t *testing.T) {
 		t.Fatal("handler should not be called when authentication fails")
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session", Value: "session-id"})
 	w := httptest.NewRecorder()
 
@@ -119,7 +119,7 @@ func TestAuthenticationMiddleware_UserNotFound(t *testing.T) {
 		t.Fatal("handler should not be called when authentication fails")
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session", Value: "session-id"})
 	w := httptest.NewRecorder()
 

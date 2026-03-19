@@ -22,7 +22,7 @@ func TestHTTPServer(t *testing.T) {
 			w.Write([]byte("pong"))
 		})
 
-		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ping", nil)
+		r := httptest.NewRequest(http.MethodGet, "/ping", nil)
 		w := httptest.NewRecorder()
 
 		server.ServeHTTP(w, r)
@@ -48,7 +48,7 @@ func TestHTTPServer(t *testing.T) {
 
 		server.Handle("/ping", pingHandler)
 
-		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/ping", nil)
+		r := httptest.NewRequest(http.MethodGet, "/ping", nil)
 		w := httptest.NewRecorder()
 
 		server.ServeHTTP(w, r)
@@ -70,7 +70,7 @@ func TestHTTPServer(t *testing.T) {
 		server := httpserver.New("", 0)
 		server.HandleGroup("/hg", hg)
 
-		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/hg/test", nil)
+		r := httptest.NewRequest(http.MethodGet, "/hg/test", nil)
 		w := httptest.NewRecorder()
 
 		server.ServeHTTP(w, r)
@@ -113,7 +113,7 @@ func TestHTTPServer(t *testing.T) {
 		server.Use(customMiddleware)
 		server.Handle("/test", &handler{})
 
-		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
 		w := httptest.NewRecorder()
 
 		server.ServeHTTP(w, r)
@@ -143,7 +143,7 @@ func TestHTTPServer(t *testing.T) {
 		server.UseFunc(customMiddlewareFunc)
 		server.Handle("/test", &handler{})
 
-		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
 		w := httptest.NewRecorder()
 
 		server.ServeHTTP(w, r)
@@ -186,7 +186,7 @@ func TestHTTPServer(t *testing.T) {
 		server.Use(firstMiddleware)
 		server.UseFunc(secondMiddlewareFunc)
 
-		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+		r := httptest.NewRequest(http.MethodGet, "/test", nil)
 		w := httptest.NewRecorder()
 
 		server.ServeHTTP(w, r)
