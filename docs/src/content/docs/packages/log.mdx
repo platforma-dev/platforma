@@ -13,7 +13,7 @@ Core Components:
 - `New`: Builds a text or JSON logger that automatically extracts values like `traceId` and `serviceName` from `context.Context`.
 - `TraceIDMiddleware`: Adds a per-request trace ID to context and response headers.
 - `Event`: Mutable wide-event model with attrs, steps, errors, severity, and duration.
-- `WideEventLogger`: Writes finalized `Event` values through a `Sampler`.
+- `WideEventLogger`: Writes finalized `Event` values through a `Sampler` and can also be installed as the package default logger for `Debug`/`Info`/`Warn`/`Error` calls.
 - `WideEventMiddleware`: Creates request-wide events, stores them in context, and emits them after handlers finish.
 - `Sampler`, `SamplerFunc`, `DefaultSampler`: Tail-sampling rules for keeping errors, slow requests, selected status codes, and random samples.
 - `EventFromContext`: Fetches the current request-wide event from context using `WideEventKey`.
@@ -55,6 +55,14 @@ Core Components:
     ```
 
     This keeps all error events, slow requests (>=2s), `5xx` responses, and 5% of the remaining traffic.
+
+    You can also reuse the same `wideLogger` as the package default logger:
+
+    ```go
+    log.SetDefault(wideLogger)
+    ```
+
+    In that mode, `log.Info(...)` and related calls emit a short-lived event that still goes through the configured sampler, just like explicit wide events created via middleware or `WriteEvent(...)`.
 
 4. Enrich events and logs inside handlers
 
