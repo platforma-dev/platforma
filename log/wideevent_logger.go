@@ -19,8 +19,6 @@ const (
 	simpleLogEventName = "log.record"
 )
 
-var _ logger = (*WideEventLogger)(nil)
-
 // NewWideEventLogger creates a wide-event logger.
 func NewWideEventLogger(w io.Writer, s Sampler, loggerType string, contextKeys map[string]any) *WideEventLogger {
 	// If no sampler provided, use a keep-all sampler to prevent nil panics
