@@ -14,7 +14,7 @@ type Event struct {
 
 	name      string
 	timestamp time.Time
-	level     slog.Level
+	level     Level
 	duration  time.Duration
 	attrs     map[string]any
 	steps     []stepRecord
@@ -26,20 +26,20 @@ func NewEvent(name string) *Event {
 	return &Event{
 		name:      name,
 		timestamp: time.Now(),
-		level:     slog.LevelDebug,
+		level:     LevelDebug,
 		attrs:     map[string]any{},
 	}
 }
 
 // SetLevel sets event level if it is higher than the current one.
-func (e *Event) SetLevel(level slog.Level) {
+func (e *Event) SetLevel(level Level) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	e.setLevelNoLock(level)
 }
 
-func (e *Event) setLevelNoLock(level slog.Level) {
+func (e *Event) setLevelNoLock(level Level) {
 	if level > e.level {
 		e.level = level
 	}
@@ -54,7 +54,7 @@ func (e *Event) AddAttrs(attrs map[string]any) {
 }
 
 // AddStep appends an event step and potentially escalates level.
-func (e *Event) AddStep(level slog.Level, name string) {
+func (e *Event) AddStep(level Level, name string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -76,7 +76,7 @@ func (e *Event) AddError(err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.setLevelNoLock(slog.LevelError)
+	e.setLevelNoLock(LevelError)
 
 	e.errors = append(e.errors, errorRecord{
 		Timestamp: time.Now(),
@@ -109,7 +109,7 @@ func (e *Event) Duration() time.Duration {
 }
 
 // Level returns the event level.
-func (e *Event) Level() slog.Level {
+func (e *Event) Level() Level {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -207,7 +207,7 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 
 type stepRecord struct {
 	Timestamp time.Time
-	Level     slog.Level
+	Level     Level
 	Name      string
 }
 
