@@ -9,8 +9,7 @@ import (
 	"os"
 )
 
-// DefaultLogger is the interface required by package-level logging helpers.
-type DefaultLogger interface {
+type logger interface {
 	Debug(msg string, args ...any)
 	Info(msg string, args ...any)
 	Warn(msg string, args ...any)
@@ -27,10 +26,10 @@ type wideEventWriter interface {
 }
 
 // Logger is the default logger instance used by package-level logging functions.
-var Logger DefaultLogger = New(os.Stdout, "text", slog.LevelInfo, nil) //nolint:gochecknoglobals
+var Logger logger = New(os.Stdout, "text", slog.LevelInfo, nil) //nolint:gochecknoglobals
 
 // SetDefault sets the default logger used by the package-level logging functions.
-func SetDefault(l DefaultLogger) {
+func SetDefault(l logger) {
 	Logger = l
 }
 
