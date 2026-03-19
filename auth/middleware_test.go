@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/platforma-dev/platforma/auth"
+	platformalog "github.com/platforma-dev/platforma/log"
 )
 
 func TestAuthenticationMiddleware_ValidSession(t *testing.T) {
@@ -33,6 +34,52 @@ func TestAuthenticationMiddleware_ValidSession(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+}
+
+func TestAuthenticationMiddleware_ValidSessionAddsUserInfoToWideEvent(t *testing.T) {
+	t.Parallel()
+
+	userSvc := &mockUserService{
+		users: map[string]*auth.User{
+			"valid-session-id": {ID: "user-id", Username: "testuser"},
+		},
+		cookieName: "session",
+	}
+	middleware := auth.NewAuthenticationMiddleware(userSvc)
+
+	handler := middleware.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "valid-session-id"})
+
+	event := platformalog.NewEvent("http.request")
+	req = req.WithContext(context.WithValue(req.Context(), platformalog.WideEventKey, event))
+
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	userID, ok := event.Attr("user.id")
+	if !ok {
+		t.Fatal("expected user.id attribute in event")
+	}
+	if userID != "user-id" {
+		t.Fatalf("expected user.id to be user-id, got %v", userID)
+	}
+
+	username, ok := event.Attr("user.username")
+	if !ok {
+		t.Fatal("expected user.username attribute in event")
+	}
+	if username != "testuser" {
+		t.Fatalf("expected user.username to be testuser, got %v", username)
 	}
 }
 
