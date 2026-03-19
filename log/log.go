@@ -9,7 +9,8 @@ import (
 	"os"
 )
 
-type logger interface {
+// DefaultLogger is the interface required by package-level logging helpers.
+type DefaultLogger interface {
 	Debug(msg string, args ...any)
 	Info(msg string, args ...any)
 	Warn(msg string, args ...any)
@@ -21,12 +22,53 @@ type logger interface {
 	ErrorContext(ctx context.Context, msg string, args ...any)
 }
 
+type wideEventWriter interface {
+	WriteEvent(ctx context.Context, e *Event)
+}
+
 // Logger is the default logger instance used by package-level logging functions.
-var Logger logger = New(os.Stdout, "text", slog.LevelInfo, nil) //nolint:gochecknoglobals
+var Logger DefaultLogger = New(os.Stdout, "text", slog.LevelInfo, nil) //nolint:gochecknoglobals
 
 // SetDefault sets the default logger used by the package-level logging functions.
-func SetDefault(l logger) {
+func SetDefault(l DefaultLogger) {
 	Logger = l
+}
+
+// WriteEvent writes a finalized wide event when the default logger supports it.
+func WriteEvent(ctx context.Context, e *Event) {
+	if e == nil {
+		return
+	}
+
+	writer, ok := Logger.(wideEventWriter)
+	if ok {
+		writer.WriteEvent(ctx, e)
+		return
+	}
+
+	e.Finish()
+
+	args := eventArgs(e.ToAttrs())
+
+	switch level := e.Level(); {
+	case level >= slog.LevelError:
+		Logger.ErrorContext(ctx, e.Name(), args...)
+	case level >= slog.LevelWarn:
+		Logger.WarnContext(ctx, e.Name(), args...)
+	case level >= slog.LevelInfo:
+		Logger.InfoContext(ctx, e.Name(), args...)
+	default:
+		Logger.DebugContext(ctx, e.Name(), args...)
+	}
+}
+
+func eventArgs(attrs []slog.Attr) []any {
+	args := make([]any, 0, len(attrs))
+	for _, attr := range attrs {
+		args = append(args, attr)
+	}
+
+	return args
 }
 
 type contextKey string

@@ -2,13 +2,22 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/platforma-dev/platforma/log"
 )
+
+const (
+	processorRunEventName = "queue.processor.run"
+	workerRunEventName    = "queue.worker.run"
+)
+
+var errWorkerPanicRecovered = errors.New("worker panic recovered")
 
 // Handler defines the interface for processing jobs.
 type Handler[T any] interface {
@@ -56,10 +65,18 @@ func (p *Processor[T]) Enqueue(ctx context.Context, job T) error {
 
 // Run starts the queue processor and blocks until all workers complete.
 func (p *Processor[T]) Run(ctx context.Context) error {
+	runEvent := newProcessorRunEvent(p.workersAmount, p.shutdownTimeout)
+	defer log.WriteEvent(ctx, runEvent)
+
+	runEvent.AddStep(slog.LevelInfo, "opening queue")
+
 	err := p.queue.Open(ctx)
 	if err != nil {
+		runEvent.AddError(fmt.Errorf("failed to open queue: %w", err))
 		return fmt.Errorf("failed to open queue: %w", err)
 	}
+
+	runEvent.AddStep(slog.LevelInfo, "starting workers")
 
 	p.wg.Add(p.workersAmount)
 	for range p.workersAmount {
@@ -70,32 +87,71 @@ func (p *Processor[T]) Run(ctx context.Context) error {
 
 	p.wg.Wait()
 
-	log.InfoContext(ctx, "all workers shut down")
+	runEvent.AddStep(slog.LevelInfo, "all workers shut down")
 
 	err = p.queue.Close(ctx)
 	if err != nil {
+		runEvent.AddError(fmt.Errorf("failed to close queue: %w", err))
 		return fmt.Errorf("failed to close queue: %w", err)
 	}
+
+	runEvent.AddStep(slog.LevelInfo, "queue closed")
 
 	return nil
 }
 
 func (p *Processor[T]) worker(ctx context.Context) {
 	defer p.wg.Done()
-	defer log.InfoContext(ctx, "worker finished")
+	log.WriteEvent(ctx, p.runWorker(ctx))
+}
+
+func newProcessorRunEvent(workersAmount int, shutdownTimeout time.Duration) *log.Event {
+	event := log.NewEvent(processorRunEventName)
+	event.AddAttrs(map[string]any{
+		"queue.workersAmount":   workersAmount,
+		"queue.shutdownTimeout": shutdownTimeout,
+	})
+
+	return event
+}
+
+func newWorkerRunEvent(shutdownTimeout time.Duration) *log.Event {
+	event := log.NewEvent(workerRunEventName)
+	event.AddAttrs(map[string]any{
+		"queue.shutdownTimeout": shutdownTimeout,
+	})
+
+	return event
+}
+
+func (p *Processor[T]) runWorker(ctx context.Context) (event *log.Event) {
+	event = newWorkerRunEvent(p.shutdownTimeout)
+	processedJobs := 0
+	drainedJobs := 0
+
+	defer func() {
+		event.AddAttrs(map[string]any{
+			"queue.processedJobs": processedJobs,
+			"queue.drainedJobs":   drainedJobs,
+		})
+		event.AddStep(slog.LevelInfo, "worker finished")
+	}()
 	defer func() {
 		if r := recover(); r != nil {
-			log.ErrorContext(ctx, "worker panic recovered", "panic", r)
+			event.AddStep(slog.LevelError, "worker panic recovered")
+			event.AddError(fmt.Errorf("%w: %v", errWorkerPanicRecovered, r))
 		}
 	}()
 
-	log.InfoContext(ctx, "worker started")
+	event.AddStep(slog.LevelInfo, "worker started")
 
 	jobChan, err := p.queue.GetJobChan(ctx)
 	if err != nil {
-		log.ErrorContext(ctx, "failed to get job chan", "error", err)
-		return
+		event.AddError(fmt.Errorf("failed to get job chan: %w", err))
+		return event
 	}
+
+	event.AddStep(slog.LevelInfo, "job channel opened")
 
 	// we first check for ctx.Done() in separate select statement
 	// because select statements choose randomly if both cases are ready
@@ -104,15 +160,16 @@ func (p *Processor[T]) worker(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			log.InfoContext(ctx, "skipping job due to shutdown")
+			event.AddStep(slog.LevelInfo, "shutdown requested")
 			breakLoop = true
 		default:
 			select {
 			case job := <-jobChan:
 				p.handler.Handle(ctx, job)
+				processedJobs++
 
 			case <-ctx.Done():
-				log.InfoContext(ctx, "shutting down worker")
+				event.AddStep(slog.LevelInfo, "shutdown requested")
 				breakLoop = true
 			}
 		}
@@ -124,6 +181,8 @@ func (p *Processor[T]) worker(ctx context.Context) {
 
 	// after context is cancelled we try to drain remaining jobs from channel
 	// before shutdown time expired
+	event.AddStep(slog.LevelInfo, "draining remaining jobs")
+
 	shutdownCtx := context.WithoutCancel(ctx)
 	shutdownCtx, cancel := context.WithTimeout(shutdownCtx, p.shutdownTimeout)
 	defer cancel()
@@ -132,15 +191,16 @@ func (p *Processor[T]) worker(ctx context.Context) {
 	for {
 		select {
 		case <-shutdownCtx.Done():
-			log.InfoContext(shutdownCtx, "shutdown timeout expired")
-			return
+			event.AddStep(slog.LevelInfo, "shutdown timeout expired")
+			return event
 		default:
 			select {
 			case job := <-jobChan:
 				p.handler.Handle(shutdownCtx, job)
+				drainedJobs++
 			case <-shutdownCtx.Done():
-				log.InfoContext(shutdownCtx, "shutdown timeout expired")
-				return
+				event.AddStep(slog.LevelInfo, "shutdown timeout expired")
+				return event
 			}
 		}
 	}

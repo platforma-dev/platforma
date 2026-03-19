@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,7 +23,7 @@ func TestTraceIDMiddleware(t *testing.T) {
 			}
 		}))
 
-		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
 
 		wrappedHandler.ServeHTTP(w, r)

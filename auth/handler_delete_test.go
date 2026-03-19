@@ -18,7 +18,7 @@ func TestDeleteHandler_Success(t *testing.T) {
 	}
 	handler := auth.NewDeleteHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil)
 	ctx := context.WithValue(req.Context(), auth.UserContextKey, &auth.User{ID: "user-id"})
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
@@ -42,7 +42,7 @@ func TestDeleteHandler_WrongMethod(t *testing.T) {
 	mockService := &mockDeleteService{}
 	handler := auth.NewDeleteHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -60,7 +60,7 @@ func TestDeleteHandler_UserNotFound(t *testing.T) {
 	}
 	handler := auth.NewDeleteHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -78,7 +78,7 @@ func TestDeleteHandler_InternalError(t *testing.T) {
 	}
 	handler := auth.NewDeleteHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil)
 	ctx := context.WithValue(req.Context(), auth.UserContextKey, &auth.User{ID: "user-id"})
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
@@ -98,7 +98,7 @@ func TestDeleteHandler_NoUserInContext(t *testing.T) {
 	}
 	handler := auth.NewDeleteHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)

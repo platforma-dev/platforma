@@ -1,6 +1,7 @@
 package httpserver_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -34,7 +35,7 @@ func TestRecoverMiddleware_NormalOperation(t *testing.T) {
 	wrappedHandler := middleware.Wrap(handler)
 
 	// Create test request
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
 
 	// Execute
@@ -61,7 +62,7 @@ func TestRecoverMiddleware_PanicRecovery(t *testing.T) {
 	wrappedHandler := middleware.Wrap(handler)
 
 	// Create test request
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
 
 	// Execute - this should not panic due to the recovery middleware
@@ -89,7 +90,7 @@ func TestRecoverMiddleware_ErrorResponse(t *testing.T) {
 	wrappedHandler := middleware.Wrap(handler)
 
 	// Create test request
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
 
 	// Execute
@@ -125,7 +126,7 @@ func TestRecoverMiddleware_MultiplePanics(t *testing.T) {
 
 	// Test multiple requests to ensure middleware continues to work
 	for i := range 3 {
-		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 		w := httptest.NewRecorder()
 
 		wrappedHandler.ServeHTTP(w, req)
