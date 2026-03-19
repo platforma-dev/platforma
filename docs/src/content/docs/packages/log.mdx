@@ -16,6 +16,7 @@ Core Components:
 - `WideEventLogger`: Writes finalized `Event` values through a `Sampler` and can also be installed as the package default logger for `Debug`/`Info`/`Warn`/`Error` calls.
 - `WideEventMiddleware`: Creates request-wide events, stores them in context, and emits them after handlers finish.
 - `Sampler`, `SamplerFunc`, `DefaultSampler`: Tail-sampling rules for keeping errors, slow requests, selected status codes, and random samples.
+- `LevelInfoForced`: Marks an otherwise-successful event as always-retained while still rendering its severity as `INFO`.
 - `EventFromContext`: Fetches the current request-wide event from context using `WideEventKey`.
 
 [Full package docs at pkg.go.dev](https://pkg.go.dev/github.com/platforma-dev/platforma/log)
@@ -62,7 +63,9 @@ Core Components:
     log.SetDefault(wideLogger)
     ```
 
-    In that mode, `log.Info(...)` and related calls emit a short-lived event that still goes through the configured sampler, just like explicit wide events created via middleware or `WriteEvent(...)`.
+    In that mode, `Debug`/`Info`/`Warn`/`Error` calls emit short-lived events through the same wide-event pipeline. `Info(...)` uses `log.LevelInfoForced`, so explicit info logs are retained while still rendering as `INFO`.
+
+    When a specific request-wide event must always be retained even though it is not slow and has no errors, set its level to `log.LevelInfoForced`. `DefaultSampler` treats that level as always-keep, but the emitted log line still shows `INFO`.
 
 4. Enrich events and logs inside handlers
 

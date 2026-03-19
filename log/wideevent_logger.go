@@ -31,6 +31,10 @@ func NewWideEventLogger(w io.Writer, s Sampler, loggerType string, contextKeys m
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.LevelKey {
+				return replaceLevelAttr(a)
+			}
+
 			if a.Key == slog.TimeKey {
 				return slog.Attr{}
 			}
@@ -82,7 +86,7 @@ func (l *WideEventLogger) DebugContext(ctx context.Context, msg string, args ...
 
 // InfoContext logs a message at Info level with context.
 func (l *WideEventLogger) InfoContext(ctx context.Context, msg string, args ...any) {
-	l.writeSimpleLog(ctx, slog.LevelInfo, msg, args...)
+	l.writeSimpleLog(ctx, LevelInfoForced, msg, args...)
 }
 
 // WarnContext logs a message at Warn level with context.

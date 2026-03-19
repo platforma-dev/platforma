@@ -37,6 +37,10 @@ func NewDefaultSampler(slowThreshold time.Duration, keepHTTPStatusAtLeast int, r
 
 // ShouldSample decides if event should be logged.
 func (s *DefaultSampler) ShouldSample(_ context.Context, e *Event) bool {
+	if e.Level() >= LevelInfoForced {
+		return true
+	}
+
 	if e.HasErrors() {
 		return true
 	}

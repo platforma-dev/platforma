@@ -147,7 +147,7 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 	for _, step := range e.steps {
 		steps = append(steps, map[string]any{
 			"timestamp": step.Timestamp,
-			"level":     step.Level.String(),
+			"level":     formatLevel(step.Level),
 			"name":      step.Name,
 		})
 	}

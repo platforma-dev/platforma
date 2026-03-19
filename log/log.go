@@ -83,11 +83,22 @@ func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
 
 // New creates a new slog.Logger with the specified type (json/text), log level, and additional context keys to include.
 func New(w io.Writer, loggerType string, level slog.Level, contextKeys map[string]any) *slog.Logger {
-	if loggerType == "json" {
-		return slog.New(&contextHandler{slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level}), contextKeys})
+	opts := &slog.HandlerOptions{
+		Level: level,
+		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.LevelKey {
+				return replaceLevelAttr(a)
+			}
+
+			return a
+		},
 	}
 
-	return slog.New(&contextHandler{slog.NewTextHandler(w, &slog.HandlerOptions{Level: level}), contextKeys})
+	if loggerType == "json" {
+		return slog.New(&contextHandler{slog.NewJSONHandler(w, opts), contextKeys})
+	}
+
+	return slog.New(&contextHandler{slog.NewTextHandler(w, opts), contextKeys})
 }
 
 // Debug logs a message at Debug level.
