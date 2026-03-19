@@ -29,7 +29,7 @@ func NewWideEventLogger(w io.Writer, s Sampler, loggerType string, contextKeys m
 	}
 
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: LevelDebug,
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
 				return slog.Attr{}
@@ -77,22 +77,22 @@ func (l *WideEventLogger) Error(msg string, args ...any) {
 
 // DebugContext logs a message at Debug level with context.
 func (l *WideEventLogger) DebugContext(ctx context.Context, msg string, args ...any) {
-	l.writeSimpleLog(ctx, slog.LevelDebug, msg, args...)
+	l.writeSimpleLog(ctx, LevelDebug, msg, args...)
 }
 
 // InfoContext logs a message at Info level with context.
 func (l *WideEventLogger) InfoContext(ctx context.Context, msg string, args ...any) {
-	l.writeSimpleLog(ctx, slog.LevelInfo, msg, args...)
+	l.writeSimpleLog(ctx, LevelInfo, msg, args...)
 }
 
 // WarnContext logs a message at Warn level with context.
 func (l *WideEventLogger) WarnContext(ctx context.Context, msg string, args ...any) {
-	l.writeSimpleLog(ctx, slog.LevelWarn, msg, args...)
+	l.writeSimpleLog(ctx, LevelWarn, msg, args...)
 }
 
 // ErrorContext logs a message at Error level with context.
 func (l *WideEventLogger) ErrorContext(ctx context.Context, msg string, args ...any) {
-	l.writeSimpleLog(ctx, slog.LevelError, msg, args...)
+	l.writeSimpleLog(ctx, LevelError, msg, args...)
 }
 
 // WriteEvent finalizes event duration and conditionally writes it.
@@ -104,7 +104,7 @@ func (l *WideEventLogger) WriteEvent(ctx context.Context, e *Event) {
 	}
 }
 
-func (l *WideEventLogger) writeSimpleLog(ctx context.Context, level slog.Level, msg string, args ...any) {
+func (l *WideEventLogger) writeSimpleLog(ctx context.Context, level Level, msg string, args ...any) {
 	event := NewEvent(simpleLogEventName)
 	event.SetLevel(level)
 	event.AddAttrs(simpleLogEventAttrs(args...))
@@ -118,7 +118,7 @@ func (l *WideEventLogger) writeSimpleLog(ctx context.Context, level slog.Level, 
 func simpleLogEventAttrs(args ...any) map[string]any {
 	attrs := map[string]any{}
 
-	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "", 0)
+	record := slog.NewRecord(time.Time{}, LevelInfo, "", 0)
 	record.Add(args...)
 	record.Attrs(func(attr slog.Attr) bool {
 		attrs[attr.Key] = attr.Value

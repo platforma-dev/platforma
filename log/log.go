@@ -22,7 +22,7 @@ type logger interface {
 }
 
 // Logger is the default logger instance used by package-level logging functions.
-var Logger logger = New(os.Stdout, "text", slog.LevelInfo, nil) //nolint:gochecknoglobals
+var Logger logger = New(os.Stdout, "text", LevelInfo, nil) //nolint:gochecknoglobals
 
 // SetDefault sets the default logger used by the package-level logging functions.
 func SetDefault(l logger) {
@@ -82,7 +82,7 @@ func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
 }
 
 // New creates a new slog.Logger with the specified type (json/text), log level, and additional context keys to include.
-func New(w io.Writer, loggerType string, level slog.Level, contextKeys map[string]any) *slog.Logger {
+func New(w io.Writer, loggerType string, level Level, contextKeys map[string]any) *slog.Logger {
 	if loggerType == "json" {
 		return slog.New(&contextHandler{slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level}), contextKeys})
 	}
