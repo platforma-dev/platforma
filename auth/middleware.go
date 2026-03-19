@@ -42,6 +42,13 @@ func (m *AuthenticationMiddleware) Wrap(next http.Handler) http.Handler {
 
 		newRequest := r
 		if user != nil {
+			if event := log.EventFromContext(r.Context()); event != nil {
+				event.AddAttrs(map[string]any{
+					"user.id":       user.ID,
+					"user.username": user.Username,
+				})
+			}
+
 			ctxWithUserId := context.WithValue(r.Context(), log.UserIDKey, user.ID)
 			ctxWithUser := context.WithValue(ctxWithUserId, UserContextKey, user)
 			newRequest = r.WithContext(ctxWithUser)
