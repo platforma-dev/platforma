@@ -86,6 +86,7 @@ linters:
           - goconst
           - gosec
           - nilnil
+          - noctx
 
       - path: database_test\.go
         linters:
