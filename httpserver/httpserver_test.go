@@ -82,6 +82,113 @@ func TestHTTPServer(t *testing.T) {
 		}
 	})
 
+	t.Run("handle group exact root", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.HandleGroup("/hg", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/hg", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "root" {
+			t.Fatalf("expected body to be 'root', got %s", string(body))
+		}
+	})
+
+	t.Run("handle group subtree", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /verify", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("verified"))
+		})
+
+		server := httpserver.New("", 0)
+		server.HandleGroup("/domains", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/domains/verify", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "verified" {
+			t.Fatalf("expected body to be 'verified', got %s", string(body))
+		}
+	})
+
+	t.Run("handle group trailing slash pattern", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.HandleGroup("/hg/", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/hg", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "root" {
+			t.Fatalf("expected body to be 'root', got %s", string(body))
+		}
+	})
+
+	t.Run("handle group not found", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.HandleGroup("/hg", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/other", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("expected status code to be 404, got %d", resp.StatusCode)
+		}
+	})
+
 	t.Run("healthcheck", func(t *testing.T) {
 		t.Parallel()
 
