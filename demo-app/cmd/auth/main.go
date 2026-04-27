@@ -34,7 +34,7 @@ func main() {
 	api.Use(log.NewTraceIDMiddleware(nil, ""))
 	api.Use(httpserver.NewRecoverMiddleware())
 
-	api.HandleGroup("/auth", authDomain.HandleGroup)
+	api.Mount("/auth", authDomain.HandleGroup)
 
 	protected := httpserver.NewHandlerGroup()
 	protected.Use(authDomain.Middleware)
@@ -42,7 +42,7 @@ func main() {
 		user := auth.UserFromContext(r.Context())
 		w.Write([]byte("Welcome, " + user.Username))
 	})
-	api.HandleGroup("/api", protected)
+	api.Mount("/api", protected)
 
 	api.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))

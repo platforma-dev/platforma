@@ -61,14 +61,14 @@ func TestHTTPServer(t *testing.T) {
 		}
 	})
 
-	t.Run("handle group", func(t *testing.T) {
+	t.Run("mount group", func(t *testing.T) {
 		t.Parallel()
 
 		hg := httpserver.NewHandlerGroup()
 		hg.Handle("/test", &handler{})
 
 		server := httpserver.New("", 0)
-		server.HandleGroup("/hg", hg)
+		server.Mount("/hg", hg)
 
 		r := httptest.NewRequest(http.MethodGet, "/hg/test", nil)
 		w := httptest.NewRecorder()
@@ -79,6 +79,208 @@ func TestHTTPServer(t *testing.T) {
 
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("mount group exact root", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("/hg", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/hg", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "root" {
+			t.Fatalf("expected body to be 'root', got %s", string(body))
+		}
+	})
+
+	t.Run("mount group subtree", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /verify", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("verified"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("/domains", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/domains/verify", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "verified" {
+			t.Fatalf("expected body to be 'verified', got %s", string(body))
+		}
+	})
+
+	t.Run("mount group trailing slash pattern", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("/hg/", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/hg", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "root" {
+			t.Fatalf("expected body to be 'root', got %s", string(body))
+		}
+	})
+
+	t.Run("mount group root prefix", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /verify", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("verified"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("/", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/verify", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "verified" {
+			t.Fatalf("expected body to be 'verified', got %s", string(body))
+		}
+	})
+
+	t.Run("mount group empty root prefix", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /verify", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("verified"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/verify", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code to be 200, got %d", resp.StatusCode)
+		}
+
+		if string(body) != "verified" {
+			t.Fatalf("expected body to be 'verified', got %s", string(body))
+		}
+	})
+
+	t.Run("mount rejects method pattern", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		server := httpserver.New("", 0)
+
+		defer func() {
+			if recover() == nil {
+				t.Fatal("expected Mount with method pattern to panic")
+			}
+		}()
+
+		server.Mount("GET /hg", hg)
+	})
+
+	t.Run("mount rejects escaped prefix mismatch", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("/hg", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/hg", nil)
+		r.URL.RawPath = "/%68g"
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("expected status code to be 404, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("mount group not found", func(t *testing.T) {
+		t.Parallel()
+
+		hg := httpserver.NewHandlerGroup()
+		hg.HandleFunc("GET /", func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte("root"))
+		})
+
+		server := httpserver.New("", 0)
+		server.Mount("/hg", hg)
+
+		r := httptest.NewRequest(http.MethodGet, "/other", nil)
+		w := httptest.NewRecorder()
+
+		server.ServeHTTP(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("expected status code to be 404, got %d", resp.StatusCode)
 		}
 	})
 

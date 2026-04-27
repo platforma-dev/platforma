@@ -49,8 +49,8 @@ func main() {
 		})
 	})
 
-	// Add handle group to HTTP server with /subApi path
-	api.HandleGroup("/subApi", subApiGroup)
+	// Mount handle group to HTTP server with /subApi path
+	api.Mount("/subApi", subApiGroup)
 
 	// Register HTTP server as application server
 	app.RegisterService("api", api)

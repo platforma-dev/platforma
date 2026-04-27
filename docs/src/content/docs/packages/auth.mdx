@@ -67,7 +67,7 @@ Core Components:
     ```go
     api := httpserver.New("8080", 3*time.Second)
 
-    api.HandleGroup("/auth", authDomain.HandleGroup)
+    api.Mount("/auth", authDomain.HandleGroup)
     ```
 
     This exposes the following endpoints:
@@ -91,7 +91,7 @@ Core Components:
         }
     })
 
-    api.HandleGroup("/api", protectedGroup)
+    api.Mount("/api", protectedGroup)
     ```
 
     The `AuthenticationMiddleware` returns 401 Unauthorized if no valid session is found. Use `auth.UserFromContext()` to access the authenticated user.
@@ -136,7 +136,7 @@ app.RegisterDomain("auth", "main", authDomain)
 
 // Set up HTTP server with auth endpoints
 api := httpserver.New("8080", 3*time.Second)
-api.HandleGroup("/auth", authDomain.HandleGroup)
+api.Mount("/auth", authDomain.HandleGroup)
 app.RegisterService("api", api)
 
 app.Run(ctx)
