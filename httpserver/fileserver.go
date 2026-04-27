@@ -15,7 +15,7 @@ type FileServer struct {
 // NewFileServer creates a new FileServer instance with the given file system, base path, and port.
 func NewFileServer(fs fs.FS, basePath, port string) *FileServer {
 	server := New(port, 1*time.Second)
-	server.HandleGroup(basePath, http.FileServer(http.FS(fs)))
+	server.Mount(basePath, http.FileServer(http.FS(fs)))
 
 	return &FileServer{server: server}
 }

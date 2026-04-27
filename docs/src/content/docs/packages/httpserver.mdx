@@ -77,7 +77,7 @@ Core Components:
 6. Mount the group on the server
 
     ```go
-    server.HandleGroup("/api", apiGroup)
+    server.Mount("/api", apiGroup)
     ```
 
     The group is now accessible at `/api/users` and `/api/posts`. The path prefix is automatically stripped.

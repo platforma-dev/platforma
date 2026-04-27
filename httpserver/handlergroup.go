@@ -38,37 +38,56 @@ func (hg *HandlerGroup) HandleFunc(pattern string, handler func(http.ResponseWri
 	hg.mux.Handle(pattern, http.HandlerFunc(handler))
 }
 
-// HandleGroup mounts handler at both pattern (group root) and pattern+"/" (subtree).
-// The handler receives requests with the pattern prefix stripped; an empty stripped
+// Mount mounts handler at both prefix (group root) and prefix+"/" (subtree).
+// The handler receives requests with the path prefix stripped; an empty stripped
 // path is normalized to "/" so that nested groups can register "GET /" etc.
-func (hg *HandlerGroup) HandleGroup(pattern string, handler http.Handler) {
-	pattern = strings.TrimRight(pattern, "/")
-	mounted := stripPrefix(pattern, handler)
+func (hg *HandlerGroup) Mount(prefix string, handler http.Handler) {
+	if prefix != "" && !strings.HasPrefix(prefix, "/") {
+		panic("httpserver: mount prefix must be a path starting with /")
+	}
 
-	hg.mux.Handle(pattern, mounted)
-	hg.mux.Handle(pattern+"/", mounted)
+	prefix = strings.TrimRight(prefix, "/")
+	if prefix == "" {
+		prefix = "/"
+	}
+	mounted := stripPrefix(prefix, handler)
+
+	if prefix == "/" {
+		hg.mux.Handle(prefix, mounted)
+		return
+	}
+
+	hg.mux.Handle(prefix, mounted)
+	hg.mux.Handle(prefix+"/", mounted)
 }
 
 // stripPrefix returns a handler that strips prefix from r.URL.Path, writing a 404
 // if the request path does not start with prefix. If stripping leaves an empty
-// path, it is normalized to "/".
+// path, it  is normalized to "/".
 func stripPrefix(prefix string, handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p := strings.TrimPrefix(r.URL.Path, prefix)
-		if p == r.URL.Path {
-			http.NotFound(w, r)
+	if prefix == "/" {
+		return handler
+	}
+
+	normalized := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" {
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = "/"
+
+			if r.URL.RawPath == "" {
+				handler.ServeHTTP(w, r2)
+				return
+			}
+
+			r2.URL.RawPath = "/"
+			handler.ServeHTTP(w, r2)
 			return
 		}
-		if p == "" {
-			p = "/"
-		}
-		r2 := r.Clone(r.Context())
-		r2.URL.Path = p
-		if r.URL.RawPath != "" {
-			r2.URL.RawPath = strings.TrimPrefix(r.URL.RawPath, prefix)
-		}
-		handler.ServeHTTP(w, r2)
+
+		handler.ServeHTTP(w, r)
 	})
+
+	return http.StripPrefix(prefix, normalized)
 }
 
 // ServeHTTP implements the http.Handler interface, allowing HandlerGroup to
