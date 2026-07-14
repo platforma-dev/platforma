@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const timestampAttrKey = "timestamp"
+
 // Event is a mutable wide event.
 type Event struct {
 	mu sync.Mutex
@@ -146,17 +148,17 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 	steps := make([]map[string]any, 0, len(e.steps))
 	for _, step := range e.steps {
 		steps = append(steps, map[string]any{
-			"timestamp": step.Timestamp,
-			"level":     step.Level.String(),
-			"name":      step.Name,
+			timestampAttrKey: step.Timestamp,
+			"level":          step.Level.String(),
+			"name":           step.Name,
 		})
 	}
 
 	eventErrors := make([]map[string]any, 0, len(e.errors))
 	for _, eventError := range e.errors {
 		eventErrors = append(eventErrors, map[string]any{
-			"timestamp": eventError.Timestamp,
-			"error":     eventError.Error,
+			timestampAttrKey: eventError.Timestamp,
+			"error":          eventError.Error,
 		})
 	}
 
@@ -173,7 +175,7 @@ func (e *Event) toAttrs(additionalReservedAttrKeys []string) []slog.Attr {
 	attrs := make([]slog.Attr, 0, len(e.attrs)+len(builtinAttrKeys))
 	attrs = append(attrs,
 		slog.String("name", e.name),
-		slog.Time("timestamp", e.timestamp),
+		slog.Time(timestampAttrKey, e.timestamp),
 		slog.Duration("duration", e.duration),
 	)
 
@@ -219,7 +221,7 @@ type errorRecord struct {
 func wideEventBuiltinAttrKeys() []string {
 	return []string{
 		"name",
-		"timestamp",
+		timestampAttrKey,
 		"duration",
 		"steps",
 		"errors",
