@@ -41,7 +41,9 @@ func (h *LogoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
+		Secure:   true,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	// Return success response
