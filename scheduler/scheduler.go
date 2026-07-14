@@ -14,7 +14,10 @@ import (
 	cron "github.com/robfig/cron/v3"
 )
 
-var errEmptyCronExpression = errors.New("cron expression cannot be empty")
+var (
+	errEmptyCronExpression = errors.New("cron expression cannot be empty")
+	errNilRunner           = errors.New("runner cannot be nil")
+)
 
 const cronParseOptions = cron.Minute |
 	cron.Hour |
@@ -45,8 +48,12 @@ type Scheduler struct {
 //   - "@every 30m" - Every 30 minutes
 //   - "@every 1s" - Every second (for intervals, use @every syntax)
 //
-// Returns an error if the cron expression is invalid.
+// Returns an error if the cron expression is invalid or the runner is nil.
 func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
+	if runner == nil {
+		return nil, fmt.Errorf("invalid runner: %w", errNilRunner)
+	}
+
 	// Check for empty expression first to avoid parser errors
 	if cronExpr == "" {
 		return nil, fmt.Errorf("invalid cron expression %q: %w", cronExpr, errEmptyCronExpression)
@@ -65,6 +72,25 @@ func New(cronExpr string, runner application.Runner) (*Scheduler, error) {
 	}, nil
 }
 
+func (s *Scheduler) run(ctx context.Context) {
+	runCtx := context.WithValue(ctx, log.TraceIDKey, uuid.NewString())
+	log.InfoContext(runCtx, "scheduler task started")
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			log.ErrorContext(runCtx, "scheduler task panicked", "panic", recovered)
+		}
+	}()
+
+	err := s.runner.Run(runCtx)
+	if err != nil {
+		log.ErrorContext(runCtx, "error in scheduler", "error", err)
+		return
+	}
+
+	log.InfoContext(runCtx, "scheduler task finished")
+}
+
 // Run starts the scheduler and executes the runner according to the cron schedule.
 // The scheduler will continue running until the context is canceled.
 func (s *Scheduler) Run(ctx context.Context) error {
@@ -76,18 +102,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	)
 
 	// Wrap runner to maintain consistent logging with trace IDs
-	_, err := cronScheduler.AddFunc(s.cronExpr, func() {
-		runCtx := context.WithValue(ctx, log.TraceIDKey, uuid.NewString())
-		log.InfoContext(runCtx, "scheduler task started")
-
-		err := s.runner.Run(runCtx)
-		if err != nil {
-			log.ErrorContext(runCtx, "error in scheduler", "error", err)
-			return
-		}
-
-		log.InfoContext(runCtx, "scheduler task finished")
-	})
+	_, err := cronScheduler.AddFunc(s.cronExpr, func() { s.run(ctx) })
 	if err != nil {
 		return fmt.Errorf("failed to add cron task: %w", err)
 	}

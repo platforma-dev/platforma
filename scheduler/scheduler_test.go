@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/platforma-dev/platforma/application"
+	"github.com/platforma-dev/platforma/log"
 	"github.com/platforma-dev/platforma/scheduler"
 )
 
@@ -154,6 +155,52 @@ func TestNew_InvalidExpression(t *testing.T) {
 	}
 }
 
+func TestNew_NilRunner(t *testing.T) {
+	t.Parallel()
+
+	s, err := scheduler.New("@hourly", nil)
+	if err == nil {
+		t.Fatal("expected an error for a nil runner")
+	}
+
+	if s != nil {
+		t.Error("expected nil scheduler for a nil runner")
+	}
+}
+
+func TestCronScheduling_ExecutesRunner(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	executed := make(chan struct{})
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(runCtx context.Context) error {
+		if traceID, ok := runCtx.Value(log.TraceIDKey).(string); !ok || traceID == "" {
+			t.Error("expected scheduled runner context to contain a trace ID")
+		}
+
+		close(executed)
+		cancel()
+
+		return nil
+	}))
+	if err != nil {
+		t.Fatalf("failed to create scheduler: %v", err)
+	}
+
+	runErr := s.Run(ctx)
+	if !errors.Is(runErr, context.Canceled) {
+		t.Fatalf("expected context cancellation error, got: %v", runErr)
+	}
+
+	select {
+	case <-executed:
+	default:
+		t.Error("expected cron callback to execute runner")
+	}
+}
+
 func TestCronScheduling_ExecutionTiming(t *testing.T) {
 	t.Parallel()
 
@@ -184,8 +231,14 @@ func TestCronScheduling_ExecutionTiming(t *testing.T) {
 func TestCronScheduling_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
-	// Test that scheduler can be created with error-returning runner
-	s, err := scheduler.New("@daily", application.RunnerFunc(func(_ context.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	executed := make(chan struct{})
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(_ context.Context) error {
+		close(executed)
+		cancel()
+
 		return errors.New("task error")
 	}))
 
@@ -193,13 +246,44 @@ func TestCronScheduling_ErrorHandling(t *testing.T) {
 		t.Fatalf("failed to create scheduler: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	runErr := s.Run(ctx)
+	if !errors.Is(runErr, context.Canceled) {
+		t.Fatalf("expected context cancellation error, got: %v", runErr)
+	}
+
+	select {
+	case <-executed:
+	default:
+		t.Error("expected cron callback to execute error-returning runner")
+	}
+}
+
+func TestCronScheduling_PanicRecovery(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// Scheduler should handle runner errors gracefully
+	executed := make(chan struct{})
+	s, err := scheduler.New("@every 1s", application.RunnerFunc(func(_ context.Context) error {
+		defer cancel()
+		defer close(executed)
+
+		panic("task panic")
+	}))
+	if err != nil {
+		t.Fatalf("failed to create scheduler: %v", err)
+	}
+
 	runErr := s.Run(ctx)
-	if runErr == nil {
-		t.Error("expected context timeout error, got nil")
+	if !errors.Is(runErr, context.Canceled) {
+		t.Fatalf("expected context cancellation error, got: %v", runErr)
+	}
+
+	select {
+	case <-executed:
+	default:
+		t.Error("expected cron callback to execute panicking runner")
 	}
 }
 
