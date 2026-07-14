@@ -67,6 +67,51 @@ func TestProcessor(t *testing.T) {
 		}
 	})
 
+	t.Run("closed provider", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		jobChan := make(chan job, 2)
+		jobChan <- job{data: 1}
+		jobChan <- job{data: 2}
+		close(jobChan)
+
+		q := &mockQueue[job]{jobChan: jobChan}
+		var handled atomic.Int32
+		var result atomic.Int32
+
+		p := queue.New(queue.HandlerFunc[job](func(_ context.Context, job job) {
+			handled.Add(1)
+			result.Add(int32(job.data))
+		}), q, 4, time.Millisecond)
+
+		runResult := make(chan error, 1)
+		go func() {
+			runResult <- p.Run(ctx)
+		}()
+
+		select {
+		case err := <-runResult:
+			if err != nil {
+				t.Fatalf("expected no error, got: %s", err.Error())
+			}
+		case <-time.After(time.Second):
+			cancel()
+			<-runResult
+			t.Fatal("expected processor to stop after provider closed job channel")
+		}
+
+		if handled.Load() != 2 {
+			t.Fatalf("expected 2 handled jobs, got %d", handled.Load())
+		}
+
+		if result.Load() != 3 {
+			t.Fatalf("expected result to be 3, got %d", result.Load())
+		}
+	})
+
 	t.Run("run fail", func(t *testing.T) {
 		t.Parallel()
 

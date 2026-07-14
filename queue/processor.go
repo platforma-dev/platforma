@@ -108,7 +108,12 @@ func (p *Processor[T]) worker(ctx context.Context) {
 			breakLoop = true
 		default:
 			select {
-			case job := <-jobChan:
+			case job, ok := <-jobChan:
+				if !ok {
+					log.InfoContext(ctx, "job channel closed")
+					return
+				}
+
 				p.handler.Handle(ctx, job)
 
 			case <-ctx.Done():
@@ -136,7 +141,12 @@ func (p *Processor[T]) worker(ctx context.Context) {
 			return
 		default:
 			select {
-			case job := <-jobChan:
+			case job, ok := <-jobChan:
+				if !ok {
+					log.InfoContext(shutdownCtx, "job channel closed")
+					return
+				}
+
 				p.handler.Handle(shutdownCtx, job)
 			case <-shutdownCtx.Done():
 				log.InfoContext(shutdownCtx, "shutdown timeout expired")
