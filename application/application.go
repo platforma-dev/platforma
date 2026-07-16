@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 
 	"github.com/platforma-dev/platforma/database"
 	"github.com/platforma-dev/platforma/log"
@@ -49,9 +48,12 @@ func New() *Application {
 // Health returns the current health status of the application.
 func (a *Application) Health(ctx context.Context) *Health {
 	for hcName, hc := range a.healthcheckers {
-		a.health.SetServiceData(hcName, hc.Healthcheck(ctx))
+		if err := a.health.SetServiceData(hcName, hc.Healthcheck(ctx)); err != nil {
+			log.ErrorContext(ctx, "failed to set service health data", "service", hcName, "error", err)
+		}
 	}
-	return a.health
+
+	return a.health.Snapshot()
 }
 
 // OnStart registers a new startup task with the given runner and configuration.
@@ -78,7 +80,7 @@ func (a *Application) RegisterRepository(dbName string, repoName string, reposit
 func (a *Application) RegisterService(serviceName string, service Runner) {
 
 	a.services[serviceName] = service
-	a.health.Services[serviceName] = &ServiceHealth{Status: ServiceStatusNotStarted}
+	a.health.RegisterService(serviceName)
 
 	healthcheckerService, ok := service.(Healthchecker)
 	if ok {
@@ -167,7 +169,7 @@ func (a *Application) run(ctx context.Context) error {
 		}()
 	}
 
-	a.health.StartedAt = time.Now()
+	a.health.StartApplication()
 
 	wg.Wait()
 
