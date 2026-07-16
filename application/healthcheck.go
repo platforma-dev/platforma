@@ -23,9 +23,9 @@ func NewHealthCheckHandler(app healther) *HealthCheckHandler {
 }
 
 func (h *HealthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	health := h.app.Health(r.Context())
+	healthSnapshot := h.app.Health(r.Context())
 
-	if err := httpserver.WriteJSON(w, http.StatusOK, health); err != nil {
+	if err := httpserver.WriteJSON(w, http.StatusOK, healthSnapshot); err != nil {
 		log.ErrorContext(r.Context(), "failed to write health response", "error", err)
 	}
 }
